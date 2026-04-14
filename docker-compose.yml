@@ -1,0 +1,17 @@
+services:
+  public-api:
+    image: ghcr.io/motues/publicapi:latest  
+    container_name: public-api-server
+    restart: always
+    ports:
+      - "3000:3000" 
+    environment:
+      - ALLOW_ORIGIN=https://example.com,https://yourdomain.com
+      - MUSIC=open
+      - AVATAR=open
+    volumes:
+      - ./data/stats:/app/data/stats # 统计数据
+
+networks:
+  default:
+    name: api-network
