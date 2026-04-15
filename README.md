@@ -33,9 +33,15 @@ pnpm start
 
 ## 配置参数
 
-项目自带的 API 通过环境变量进行配置。
+## 环境变量
 
-如果需要添加站外链接，可以编辑 `/data/list/config.json` 文件，支持热加载，修改后立刻生效，无需重新启动服务。
+需要在程序启动的时候确定，不支持热加载。
+
+## 配置文件
+
+存放于 `/data/config/` 文件夹中，支持热加载，修改后立刻生效，无需重新启动服务。。
+
+如果需要添加站外链接，可以编辑 `/data/config/services.json` 文件。
 
 ```json
 [
@@ -47,6 +53,8 @@ pnpm start
     { ... }
 ]
 ```
+
+如果需要设置站点信息，，可以编辑 `/data/config/site.json` 文件。
 
 Made with ❤️ by [Motues](https://www.motues.top)
 
