@@ -31,6 +31,23 @@ pnpm install
 pnpm start
 ```
 
+## 配置参数
+
+项目自带的 API 通过环境变量进行配置。
+
+如果需要添加站外链接，可以编辑 `/data/list/config.json` 文件，支持热加载，修改后立刻生效，无需重新启动服务。
+
+```json
+[
+    {
+        "name": "GitHub",
+        "url": "https://github.com/Motues",
+        "status": "open" // open | close
+    },
+    { ... }
+]
+```
+
 Made with ❤️ by [Motues](https://www.motues.top)
 
 如果使用过程中存在问题，欢迎通过[邮件](mailto:me@motues.top)告诉我

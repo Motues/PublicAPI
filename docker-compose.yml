@@ -10,7 +10,7 @@ services:
       - MUSIC=open
       - AVATAR=open
     volumes:
-      - ./data/stats:/app/data/stats # 统计数据
+      - ./data:/app/data # 数据
 
 networks:
   default:

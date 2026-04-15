@@ -1,10 +1,21 @@
 import { getStats } from '../../utils/counter.js';
 import { config } from '../../utils/config.js';
+import { loadServices } from '../../utils/serviceLoader.js';
 
 export const indexPage = async (c) => {
   const stats = await getStats();
-  const currentTime = new Date().toLocaleString('zh-CN', { hour12: false });
+  const currentTime = new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
   const currentYear = new Date().getFullYear();
+  const services = loadServices();
+
+  const serviceCards = services.map(service => {
+    const isOnline = service.status === 'open';
+    return `
+      <a class="api-item" href="${service.url}" target="_blank">
+        <span>${service.name}</span>
+        <span class="status-dot ${isOnline ? 'on' : 'off'}"></span>
+      </a>`;
+  }).join('\n');
 
   return c.html(`
     <!DOCTYPE html>
@@ -15,7 +26,7 @@ export const indexPage = async (c) => {
       <title>Public API - System Terminal</title>
       <style>
         :root { --border-color: #333; --bg-color: #ffffff; --text-color: #24292e; --accent-color: #067ece; }
-        body { max-width: 780px; margin: 40px auto; padding: 20px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace; background-color: var(--bg-color);color: var(--text-color);line-height: 1.5; }
+        body { max-width: 600px; margin: 40px auto; padding: 20px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace; background-color: var(--bg-color);color: var(--text-color);line-height: 1.5; }
         .box { border: 1px solid var(--border-color); padding: 20px; margin-bottom: 25px; position: relative; }
         .box-title { position: absolute; top: -12px; left: 20px; background: white; padding: 0 10px; font-size: 14px; font-weight: bold; }
         .sys-header { text-align: center; margin-bottom: 20px; }
@@ -40,7 +51,7 @@ export const indexPage = async (c) => {
     <body>
 
       <div class="box">
-        <div class="box-title">[WEB] 系统信息</div>
+        <div class="box-title">[OS] 系统信息</div>
         <div class="sys-header">
             <div class="sys-title">PUBLIC API SERVER</div>
         </div>
@@ -61,7 +72,7 @@ export const indexPage = async (c) => {
       </div>
 
       <div class="box">
-        <div class="box-title">[List] API 目录</div>
+        <div class="box-title">[List] 服务目录</div>
         <div class="api-grid">
           <a class="api-item" href="/docs/meting">
             <span>[/music] Music API</span>
@@ -71,9 +82,10 @@ export const indexPage = async (c) => {
             <span>[/avatar] Avatar API</span>
             <span class="status-dot ${config.avatarOpen ? 'on' : 'off'}"></span>
           </a>
+          ${serviceCards}
         </div>
         <div style="margin-top: 15px; font-size: 13px; color: #888;">
-            * 点击上方卡片进入对应接口文档说明页面
+            * 点击上方卡片进入对应服务页面
         </div>
       </div>
 
