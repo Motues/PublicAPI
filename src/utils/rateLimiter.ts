@@ -59,9 +59,9 @@ export const createRateLimitMiddleware = (options: RateLimitOptions = {}) => {
       rateLimitStore.set(clientIP, entry);
       
       // 设置响应头
-      c.header('X-RateLimit-Limit', maxRequests.toString());
-      c.header('X-RateLimit-Remaining', (maxRequests - 1).toString());
-      c.header('X-RateLimit-Reset', Math.ceil(entry.resetTime / 1000).toString());
+      // c.header('X-RateLimit-Limit', maxRequests.toString());
+      // c.header('X-RateLimit-Remaining', (maxRequests - 1).toString());
+      // c.header('X-RateLimit-Reset', Math.ceil(entry.resetTime / 1000).toString());
       
       await next();
       return;
@@ -71,9 +71,9 @@ export const createRateLimitMiddleware = (options: RateLimitOptions = {}) => {
     if (entry.count >= maxRequests) {
       const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
       
-      c.header('X-RateLimit-Limit', maxRequests.toString());
-      c.header('X-RateLimit-Remaining', '0');
-      c.header('X-RateLimit-Reset', Math.ceil(entry.resetTime / 1000).toString());
+      // c.header('X-RateLimit-Limit', maxRequests.toString());
+      // c.header('X-RateLimit-Remaining', '0');
+      // c.header('X-RateLimit-Reset', Math.ceil(entry.resetTime / 1000).toString());
       c.header('Retry-After', retryAfter.toString());
       
       return c.json(
@@ -91,9 +91,9 @@ export const createRateLimitMiddleware = (options: RateLimitOptions = {}) => {
     rateLimitStore.set(clientIP, entry);
 
     // 设置响应头
-    c.header('X-RateLimit-Limit', maxRequests.toString());
-    c.header('X-RateLimit-Remaining', (maxRequests - entry.count).toString());
-    c.header('X-RateLimit-Reset', Math.ceil(entry.resetTime / 1000).toString());
+    // c.header('X-RateLimit-Limit', maxRequests.toString());
+    // c.header('X-RateLimit-Remaining', (maxRequests - entry.count).toString());
+    // c.header('X-RateLimit-Reset', Math.ceil(entry.resetTime / 1000).toString());
 
     await next();
   };

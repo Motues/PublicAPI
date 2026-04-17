@@ -56,6 +56,17 @@ pnpm start
 
 如果需要设置站点信息，，可以编辑 `/data/config/site.json` 文件。
 
+```json
+{
+  "siteName": "Public API",
+  "description": [
+    "A public API service for everyone.",
+    "Welcome to use!"
+  ],
+  "footer": "系统运行良好，欢迎使用！"
+}
+```
+
 Made with ❤️ by [Motues](https://www.motues.top)
 
 如果使用过程中存在问题，欢迎通过[邮件](mailto:me@motues.top)告诉我

@@ -31,9 +31,10 @@ export const indexPage = async (c) => {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>${siteName}</title>
+      <link rel="stylesheet" href="https://fonts.font.im/css2?family=Noto+Serif+SC:wght@400;700&display=swap">
       <style>
         :root { --border-color: #333; --bg-color: #ffffff; --text-color: #24292e; --accent-color: #067ece; }
-        body { max-width: 600px; margin: 40px auto; padding: 20px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace; background-color: var(--bg-color);color: var(--text-color);line-height: 1.5; }
+        body { max-width: 600px; margin: 40px auto; padding: 20px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace, 'Noto Serif SC', -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif; background-color: var(--bg-color);color: var(--text-color);line-height: 1.5; }
         .box { border: 1px solid var(--border-color); padding: 20px; margin-bottom: 25px; position: relative; }
         .box-title { position: absolute; top: -12px; left: 20px; background: white; padding: 0 10px; font-size: 14px; font-weight: bold; }
         .sys-header { text-align: center; margin-bottom: 20px; }
@@ -58,7 +59,7 @@ export const indexPage = async (c) => {
         .cmd { color: var(--accent-color); }
         #intro-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.8s ease-out, visibility 0.8s ease-out; }
         #intro-overlay.fade-out { opacity: 0; visibility: hidden; }
-        #intro-text { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace; font-size: 20px; color: var(--text-color); border-right: 2px solid var(--accent-color); padding-right: 5px; animation: cursor-blink 0.7s step-end infinite; }
+        #intro-text { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace, 'Noto Serif SC', -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 20px; color: var(--text-color); border-right: 2px solid var(--accent-color); padding-right: 5px; animation: cursor-blink 0.7s step-end infinite; }
         @keyframes cursor-blink { 50% { border-color: transparent; } }
         #main-content {  opacity: 0; transition: opacity 0.6s ease-in; }
         #main-content.visible { opacity: 1; }
@@ -165,37 +166,23 @@ export const indexPage = async (c) => {
           
           let descIndex = Math.floor(Math.random() * descriptions.length);
           let charIndex = 0;
-          let isDeleting = false;
           let typeSpeed = 80;
 
           function introTypeWriter() {
             const currentDesc = descriptions[descIndex];
             
-            if (isDeleting) {
-              introText.textContent = currentDesc.substring(0, charIndex - 1);
-              charIndex--;
-              typeSpeed = 40;
-            } else {
+            if (charIndex < currentDesc.length) {
               introText.textContent = currentDesc.substring(0, charIndex + 1);
               charIndex++;
-              typeSpeed = 80;
-            }
-
-            if (!isDeleting && charIndex === currentDesc.length) {
+              setTimeout(introTypeWriter, typeSpeed);
+            } else {
               setTimeout(() => {
-                isDeleting = true;
-                introTypeWriter();
-              }, 1500);
-              return;
-            } else if (isDeleting && charIndex === 0) {
-              introOverlay.classList.add('fade-out');
-              setTimeout(() => {
-                mainContent.classList.add('visible');
-              }, 300);
-              return;
+                introOverlay.classList.add('fade-out');
+                setTimeout(() => {
+                  mainContent.classList.add('visible');
+                }, 300);
+              }, 1000);
             }
-
-            setTimeout(introTypeWriter, typeSpeed);
           }
 
           setTimeout(introTypeWriter, 300);

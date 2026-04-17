@@ -31,7 +31,7 @@ export const getAvatarData = async (c: Context) => {
         return c.redirect(cravatarUrl);
       }
     } catch (err) {
-      // console.error('Cravatar fetch error:', err);
+      console.error('Cravatar fetch error:', err);
       // 出错时回退到下面的生成模式
     }
   }
@@ -50,7 +50,7 @@ export const getAvatarData = async (c: Context) => {
 
     return c.body(svg, 200, {
       'Content-Type': 'image/svg+xml',
-      'Cache-Control': 'public, max-age=31536000',
+      'Cache-Control': 'public, max-age=86400',
     });
   } catch (err) {
     return c.text('Internal Server Error', 500);

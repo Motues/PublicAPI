@@ -7,6 +7,7 @@ import { docPage } from './routes/page/doc.js';
 import { createCorsMiddleware } from './utils/cors.js';
 import { incrementCounter, getStats } from './utils/counter.js';
 import { createRateLimitMiddleware } from './utils/rateLimiter.js';
+import { lruCacheMiddleware } from './utils/lruCache.js';
 import { config } from './utils/config.js';
 
 const app = new Hono()
@@ -21,6 +22,10 @@ if(config.avatarOpen) app.use('/avatar/*', createRateLimitMiddleware({ maxReques
 // 接口调用量统计
 if(config.musicOpen) app.use('/music/*', async (c, next) => { await incrementCounter(); await next(); });
 if(config.avatarOpen) app.use('/avatar/*', async (c, next) => { await incrementCounter(); await next(); });
+
+//  LRU 接口缓存
+if(config.musicOpen) app.use('/music/*', lruCacheMiddleware(300));
+if(config.avatarOpen) app.use('/avatar/*', lruCacheMiddleware(300));
 
 // 首页
 app.get('/', indexPage);
