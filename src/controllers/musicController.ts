@@ -1,11 +1,18 @@
 import type { Context } from 'hono';
-import Meting from '@meting/core';
+import Meting from '../thirdparty/meting/meting.js';
+import { LRUCache } from 'lru-cache'
+import { loadMetingSettings } from '../utils/dataLoader.js';
 
 // Initialize with a music platform
 const meting = new Meting('netease'); // 'netease', 'tencent', 'kugou', 'baidu', 'kuwo'
 
 // Enable data formatting for consistent output
 meting.format(true);
+
+const musicInfoCache = new LRUCache<string, string>({
+  max: 1000,
+  ttl: 1000 * 60 * 60 * 24, // 缓存24小时
+});
 
 export const getMusicData = async (c: Context) => {
   const server = c.req.query('server') || 'netease';
@@ -30,6 +37,16 @@ export const getMusicData = async (c: Context) => {
 
   meting.site(server);
 
+  if (server === 'netease') {
+    const settings = loadMetingSettings();
+    if (settings.cookie && settings.cookie.trim() !== '') {
+      meting.cookie(settings.cookie);
+      // console.log('[Music Cookie] Cookie set successfully.');
+    }
+  }
+
+  console.log(`[Music Request] Server: ${server}, Type: ${type}, ID: ${id}`);
+
   try {
     let result;
     if (type === 'search') {
@@ -39,12 +56,23 @@ export const getMusicData = async (c: Context) => {
       const playlistResult = await meting.playlist(id);
       result = JSON.parse(playlistResult);
     } else {
-      const details = await meting.song(id);
+
+      let details;
+      if (musicInfoCache.has(id)) {
+        // 缓存命中
+        details = musicInfoCache.get(id);
+        console.log('[Music Cache] Cache hit for song ID:', id);
+      } else {
+        // 缓存未命中
+        details = await meting.song(id);
+        musicInfoCache.set(id, details);
+      }
       if (!details) {
+        console.error('[Music Error] No details found for song ID:', id);
         return c.json({ error: 'Song not found' }, 404);
       }
       const songInfo = JSON.parse(details)[0]; // 获取第一首歌曲的信息
-      // console.log('Song Info:', songInfo); // 输出歌曲信息以供调试
+      // console.log('Song Info:', songInfo);
       switch (type) {
         case 'details':
           result = songInfo;
@@ -74,7 +102,7 @@ export const getMusicData = async (c: Context) => {
     return c.json(result);
 
   } catch (error) {
-    console.error(error);
+    console.error('[Music Error] Internal Server Error:', error);
     return c.json({ error: 'Internal Server Error' }, 500);
   }
 };

@@ -29,6 +29,7 @@ export const lruCacheMiddleware = (ttlSeconds?: number) => {
     const cached = localCache.get(key);
     if (cached) {
       c.header('X-Cache', 'HIT');
+      console.log('[Cache hit] ', key);
       if (cached?.__isRedirect) {
         return c.redirect(cached.url);
       }

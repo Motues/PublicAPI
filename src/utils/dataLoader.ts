@@ -99,3 +99,52 @@ export function loadSiteConfig(): SiteConfig {
     return defaultConfig;
   }
 }
+
+export interface MetingConfig {
+  cookie?: string;
+}
+
+let metingCookieCache: MetingConfig | null = null;
+let lastLoadTime_meting: number = 0;
+
+const defaultMetingConfig: MetingConfig = {
+  cookie: ''
+};
+
+export function loadMetingSettings(): MetingConfig {
+  const now = Date.now();
+  
+  if (metingCookieCache && (now - lastLoadTime_meting) < CACHE_DURATION) {
+    return metingCookieCache;
+  }
+
+  try {
+    const configDir = join(process.cwd(), 'data', 'config');
+    const configPath = join(configDir, 'meting.json');
+    
+    if (!existsSync(configDir)) {
+      mkdirSync(configDir, { recursive: true });
+    }
+    
+    if (!existsSync(configPath)) {
+      writeFileSync(configPath, JSON.stringify(defaultMetingConfig, null, 2), 'utf-8');
+      console.log('Created default meting config file');
+      metingCookieCache = defaultMetingConfig;
+      lastLoadTime_meting = now;
+      return defaultMetingConfig;
+    }
+    
+    const fileContent = readFileSync(configPath, 'utf-8');
+    const config: MetingConfig = JSON.parse(fileContent);
+    
+    metingCookieCache = {
+      cookie: config.cookie || ''
+    };
+    lastLoadTime_meting = now;
+    
+    return metingCookieCache;
+  } catch (error) {
+    console.error('Failed to load meting settings:', error);
+    return defaultMetingConfig;
+  }
+}

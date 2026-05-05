@@ -10,7 +10,7 @@ export const createCorsMiddleware = (allowedOrigins: string[]) => {
     },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
-    exposeHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'Retry-After'],
+    exposeHeaders: ['Retry-After'],
     maxAge: 86400,
     credentials: true,
   });

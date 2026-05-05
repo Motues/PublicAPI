@@ -1,5 +1,5 @@
 import type { Context, Next } from 'hono';
-import { getClientIP } from './ip.js';
+import { getClientIP } from '../ip.js';
 
 interface RateLimitEntry {
   count: number;

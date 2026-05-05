@@ -1,4 +1,4 @@
-import { getStats } from '../../utils/counter.js';
+import { getStats } from '../../utils/middleware/counter.js';
 import { config } from '../../utils/config.js';
 import { loadServices, loadSiteConfig } from '../../utils/dataLoader.js';
 import { getSystemInfo } from '../../utils/systemInfo.js';
@@ -6,14 +6,13 @@ import { getSystemInfo } from '../../utils/systemInfo.js';
 const osName = getSystemInfo().osName || 'Unknown OS';
 export const indexPage = async (c) => {
   const stats = await getStats();
-  const currentTime = new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
+  const currentTime = new Date().toLocaleString('zh-CN', { hour12: false /*, timeZone: 'Asia/Shanghai' */ });
   const currentYear = new Date().getFullYear();
   const services = loadServices(), siteConfig = loadSiteConfig();
 
   const siteName = siteConfig.siteName || 'Public API Server';
-  const siteDescriptions = siteConfig.description.length > 0 
-    ? siteConfig.description 
-    : ['Welcome to Public API Server'];
+  const siteDescriptions = siteConfig.description.length > 0 ? siteConfig.description : ['Welcome to Public API Server'];
+  const siteFooter = siteConfig.footer || 'Status: Online';
 
   const serviceCards = services.map(service => {
     const isOnline = service.status === 'open';
@@ -116,7 +115,7 @@ export const indexPage = async (c) => {
           © ${currentYear} <a href="https://github.com/Motues/PublicAPI" target="_blank">Public API</a>
           <br>
           <span style="opacity: 0.8; margin-top: 8px; display: inline-block;">
-            ${siteConfig.footer}
+            ${siteFooter}
           </span>
         </div>
       </div>

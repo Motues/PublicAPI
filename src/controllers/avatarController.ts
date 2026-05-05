@@ -19,7 +19,9 @@ export const getAvatarData = async (c: Context) => {
     ? colorsParam.split(',').map(color => color.startsWith('#') ? color : `#${color}`)
     : ["#FFADAD", "#FFD6A5", "#FDFFB6", "#FF9900", "#AABBCC"];
 
-  // 1. 如果是 cravatar 模式，进行逻辑判断
+  console.log(`[Avatar Request] Name: ${name}, Mode: ${mode}`);
+
+  // cravatar 模式
   if (mode === 'cravatar') {
     try {
       const emailHash = name.trim().toLowerCase(); 
@@ -31,12 +33,13 @@ export const getAvatarData = async (c: Context) => {
         return c.redirect(cravatarUrl);
       }
     } catch (err) {
-      console.error('Cravatar fetch error:', err);
+      console.error('[Avatar Error] Cravatar fetch error:', err);
+      console.log('[Avatar Fallback] Falling back to generate mode.');
       // 出错时回退到下面的生成模式
     }
   }
 
-  // 2. 生成模式 (或者是 Cravatar 判定为默认头像后的回退逻辑)
+  // 生成 boring-avatar 的 SVG
   try {
     const svg = renderToStaticMarkup(
       React.createElement(Avatar, {
@@ -53,6 +56,7 @@ export const getAvatarData = async (c: Context) => {
       'Cache-Control': 'public, max-age=86400',
     });
   } catch (err) {
+    console.error('[Avatar Error] Avatar generation error:', err);
     return c.text('Internal Server Error', 500);
   }
 }
