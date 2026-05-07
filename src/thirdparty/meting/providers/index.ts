@@ -3,12 +3,13 @@ import TencentProvider from './tencent.js';
 import KugouProvider from './kugou.js';
 import BaiduProvider from './baidu.js';
 import KuwoProvider from './kuwo.js';
+import BaseProvider, { type MetingLike } from './base.js';
 
 /**
  * 音乐平台提供者工厂
  */
 export default class ProviderFactory {
-  static providers = {
+  static providers: Record<string, new (meting: any) => BaseProvider> = {
     netease: NeteaseProvider,
     tencent: TencentProvider,
     kugou: KugouProvider,
@@ -22,7 +23,7 @@ export default class ProviderFactory {
    * @param {Object} meting Meting 实例
    * @returns {BaseProvider} 平台提供者实例
    */
-  static create(platform, meting) {
+  static create(platform: string, meting: MetingLike): BaseProvider {
     const ProviderClass = this.providers[platform];
     if (!ProviderClass) {
       throw new Error(`Unsupported platform: ${platform}`);
@@ -34,7 +35,7 @@ export default class ProviderFactory {
    * 获取支持的平台列表
    * @returns {string[]} 支持的平台名称数组
    */
-  static getSupportedPlatforms() {
+  static getSupportedPlatforms(): string[] {
     return Object.keys(this.providers);
   }
 
@@ -43,7 +44,7 @@ export default class ProviderFactory {
    * @param {string} platform 平台名称
    * @returns {boolean} 是否支持
    */
-  static isSupported(platform) {
+  static isSupported(platform: string): boolean {
     return platform in this.providers;
   }
 }

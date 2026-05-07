@@ -1,11 +1,12 @@
 import crypto from 'crypto';
 import BaseProvider from './base.js';
+import type { ApiConfig, SearchOption } from './base.js';
 
 /**
  * 百度音乐平台提供者
  */
 export default class BaiduProvider extends BaseProvider {
-  constructor(meting) {
+  constructor(meting: any) {
     super(meting);
     this.name = 'baidu';
   }
@@ -13,7 +14,7 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 获取百度音乐的请求头配置
    */
-  getHeaders() {
+  getHeaders(): Record<string, string> {
     return {
       'Cookie': `BAIDUID=${this._getRandomHex(32)}:FG=1`,
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) baidu-music/1.2.1 Chrome/66.0.3359.181 Electron/3.0.5 Safari/537.36',
@@ -26,7 +27,7 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 搜索歌曲
    */
-  search(keyword, option = {}) {
+  search(keyword: string, option: SearchOption = {}): ApiConfig {
     return {
       method: 'GET',
       url: 'http://musicapi.taihe.com/v1/restserver/ting',
@@ -47,7 +48,7 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 获取歌曲详情
    */
-  song(id) {
+  song(id: string): ApiConfig {
     return {
       method: 'GET',
       url: 'http://musicapi.taihe.com/v1/restserver/ting',
@@ -67,7 +68,7 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 获取专辑信息
    */
-  album(id) {
+  album(id: string): ApiConfig {
     return {
       method: 'GET',
       url: 'http://musicapi.taihe.com/v1/restserver/ting',
@@ -85,7 +86,7 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 获取艺术家作品
    */
-  artist(id, limit = 50) {
+  artist(id: string, limit: number = 50): ApiConfig {
     return {
       method: 'GET',
       url: 'http://musicapi.taihe.com/v1/restserver/ting',
@@ -106,7 +107,7 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 获取播放列表
    */
-  playlist(id) {
+  playlist(id: string): ApiConfig {
     return {
       method: 'GET',
       url: 'http://musicapi.taihe.com/v1/restserver/ting',
@@ -124,7 +125,7 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 获取音频播放链接
    */
-  url(id, br = 320) {
+  url(id: string, br: number = 320): ApiConfig {
     return {
       method: 'GET',
       url: 'http://musicapi.taihe.com/v1/restserver/ting',
@@ -144,7 +145,7 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 获取歌词
    */
-  lyric(id) {
+  lyric(id: string): ApiConfig {
     return {
       method: 'GET',
       url: 'http://musicapi.taihe.com/v1/restserver/ting',
@@ -162,7 +163,7 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 获取封面图片
    */
-  async pic(id, size = 300) {
+  async pic(id: string, size: number = 300): Promise<string> {
     const format = this.meting.isFormat;
     const data = await this.meting.format(false).song(id);
     this.meting.isFormat = format;
@@ -174,7 +175,7 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 格式化百度音乐数据
    */
-  format(data) {
+  format(data: any): any {
     return {
       id: data.song_id,
       name: data.title,
@@ -190,14 +191,14 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 处理百度音乐的编码/解码逻辑
    */
-  async handleEncode(api) {
+  async handleEncode(api: ApiConfig): Promise<ApiConfig> {
     if (api.encode === 'baidu_AESCBC') {
       return this.aesEncrypt(api);
     }
     return api;
   }
 
-  async handleDecode(decodeType, data) {
+  async handleDecode(decodeType: string, data: string): Promise<string> {
     if (decodeType === 'baidu_url') {
       return this.urlDecode(data);
     } else if (decodeType === 'baidu_lyric') {
@@ -209,32 +210,33 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 百度音乐 AES 加密
    */
-  async aesEncrypt(api) {
+  async aesEncrypt(api: ApiConfig): Promise<ApiConfig> {
     const key = 'DBEECF8C50FD160E';
     const vi = '1231021386755796';
-    
-    const data = `songid=${api.body.songid}&ts=${Date.now()}`;
-    
+
+    const body = api.body as Record<string, any>;
+    const data = `songid=${body.songid}&ts=${Date.now()}`;
+
     const cipher = crypto.createCipheriv('aes-128-cbc', key, vi);
     cipher.setAutoPadding(true);
     let encrypted = cipher.update(data, 'utf8', 'base64');
     encrypted += cipher.final('base64');
-    
-    api.body.e = encrypted;
-    
+
+    body.e = encrypted;
+
     return api;
   }
 
   /**
    * 百度音乐 URL 解码
    */
-  urlDecode(result) {
+  async urlDecode(result: string): Promise<string> {
     const data = JSON.parse(result);
-    
+
     let maxBr = 0;
-    let url;
-    
-    data.songurl.url.forEach(item => {
+    let url: any;
+
+    data.songurl.url.forEach((item: any) => {
       if (item.file_bitrate <= this.meting.temp.br && item.file_bitrate > maxBr) {
         maxBr = item.file_bitrate;
         url = {
@@ -243,27 +245,27 @@ export default class BaiduProvider extends BaseProvider {
         };
       }
     });
-    
+
     if (!url) {
       url = {
         url: '',
         br: -1
       };
     }
-    
+
     return JSON.stringify(url);
   }
 
   /**
    * 百度音乐歌词解码
    */
-  lyricDecode(result) {
+  async lyricDecode(result: string): Promise<string> {
     const data = JSON.parse(result);
     const lyricData = {
       lyric: data.lrcContent || '',
       tlyric: ''
     };
-    
+
     return JSON.stringify(lyricData);
   }
 
@@ -272,7 +274,7 @@ export default class BaiduProvider extends BaseProvider {
   /**
    * 生成随机十六进制字符串
    */
-  _getRandomHex(length) {
+  _getRandomHex(length: number): string {
     return crypto.randomBytes(Math.ceil(length / 2))
       .toString('hex')
       .slice(0, length);

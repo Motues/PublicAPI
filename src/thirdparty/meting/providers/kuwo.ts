@@ -1,10 +1,11 @@
 import BaseProvider from './base.js';
+import type { ApiConfig, SearchOption } from './base.js';
 
 /**
  * 酷我音乐平台提供者
  */
 export default class KuwoProvider extends BaseProvider {
-  constructor(meting) {
+  constructor(meting: any) {
     super(meting);
     this.name = 'kuwo';
   }
@@ -12,7 +13,7 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 获取酷我音乐的请求头配置
    */
-  getHeaders() {
+  getHeaders(): Record<string, string> {
     return {
       'Cookie': 'Hm_lvt_cdb524f42f0ce19b169a8071123a4797=1623339177,1623339183; _ga=GA1.2.1195980605.1579367081; Hm_lpvt_cdb524f42f0ce19b169a8071123a4797=1623339982; kw_token=3E7JFQ7MRPL; _gid=GA1.2.747985028.1623339179; _gat=1',
       'csrf': '3E7JFQ7MRPL',
@@ -25,7 +26,7 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 搜索歌曲
    */
-  search(keyword, option = {}) {
+  search(keyword: string, option: SearchOption = {}): ApiConfig {
     return {
       method: 'GET',
       url: 'http://www.kuwo.cn/api/www/search/searchMusicBykeyWord',
@@ -42,7 +43,7 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 获取歌曲详情
    */
-  song(id) {
+  song(id: string): ApiConfig {
     return {
       method: 'GET',
       url: 'http://www.kuwo.cn/api/www/music/musicInfo',
@@ -57,7 +58,7 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 获取专辑信息
    */
-  album(id) {
+  album(id: string): ApiConfig {
     return {
       method: 'GET',
       url: 'http://www.kuwo.cn/api/www/album/albumInfo',
@@ -74,7 +75,7 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 获取艺术家作品
    */
-  artist(id, limit = 50) {
+  artist(id: string, limit: number = 50): ApiConfig {
     return {
       method: 'GET',
       url: 'http://www.kuwo.cn/api/www/artist/artistMusic',
@@ -91,7 +92,7 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 获取播放列表
    */
-  playlist(id) {
+  playlist(id: string): ApiConfig {
     return {
       method: 'GET',
       url: 'http://www.kuwo.cn/api/www/playlist/playListInfo',
@@ -108,7 +109,7 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 获取音频播放链接
    */
-  url(id, br = 320) {
+  url(id: string, br: number = 320): ApiConfig {
     return {
       method: 'GET',
       url: 'http://www.kuwo.cn/api/v1/www/music/playUrl',
@@ -124,7 +125,7 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 获取歌词
    */
-  lyric(id) {
+  lyric(id: string): ApiConfig {
     return {
       method: 'GET',
       url: 'http://m.kuwo.cn/newh5/singles/songinfoandlrc',
@@ -139,7 +140,7 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 获取封面图片
    */
-  async pic(id, size = 300) {
+  async pic(id: string, size: number = 300): Promise<string> {
     const format = this.meting.isFormat;
     const data = await this.meting.format(false).song(id);
     this.meting.isFormat = format;
@@ -151,7 +152,7 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 格式化酷我音乐数据
    */
-  format(data) {
+  format(data: any): any {
     return {
       id: data.rid,
       name: data.name,
@@ -167,7 +168,7 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 处理酷我音乐的解码逻辑
    */
-  async handleDecode(decodeType, data) {
+  async handleDecode(decodeType: string, data: string): Promise<string> {
     if (decodeType === 'kuwo_url') {
       return this.urlDecode(data);
     } else if (decodeType === 'kuwo_lyric') {
@@ -179,10 +180,10 @@ export default class KuwoProvider extends BaseProvider {
   /**
    * 酷我音乐 URL 解码
    */
-  urlDecode(result) {
+  async urlDecode(result: string): Promise<string> {
     const data = JSON.parse(result);
-    
-    let url;
+
+    let url: any;
     if (data.code === 200 && data.data && data.data.url) {
       url = {
         url: data.data.url,
@@ -194,33 +195,33 @@ export default class KuwoProvider extends BaseProvider {
         br: -1
       };
     }
-    
+
     return JSON.stringify(url);
   }
 
   /**
    * 酷我音乐歌词解码
    */
-  lyricDecode(result) {
+  async lyricDecode(result: string): Promise<string> {
     const data = JSON.parse(result);
-    
+
     let lyric = '';
     if (data.data && data.data.lrclist && data.data.lrclist.length > 0) {
-      data.data.lrclist.forEach(item => {
+      data.data.lrclist.forEach((item: any) => {
         const time = parseFloat(item.time);
         const min = Math.floor(time / 60).toString().padStart(2, '0');
         const sec = Math.floor(time % 60).toString().padStart(2, '0');
         const msec = ((time % 1) * 100).toFixed(0).padStart(2, '0');
-        
+
         lyric += `[${min}:${sec}.${msec}]${item.lineLyric}\n`;
       });
     }
-    
+
     const lyricData = {
       lyric: lyric,
       tlyric: ''
     };
-    
+
     return JSON.stringify(lyricData);
   }
 }

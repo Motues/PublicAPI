@@ -11,7 +11,3 @@ services:
       - AVATAR=open
     volumes:
       - ./data:/app/data # 数据
-
-networks:
-  default:
-    name: api-network

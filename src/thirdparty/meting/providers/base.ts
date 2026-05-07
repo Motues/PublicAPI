@@ -2,8 +2,51 @@
  * 音乐平台提供者基础类
  * 定义所有音乐平台提供者需要实现的接口
  */
+
+export interface ApiConfig {
+  method: 'GET' | 'POST';
+  url: string;
+  body: Record<string, any> | string | null;
+  encode?: string;
+  decode?: string;
+  format?: string;
+}
+
+export interface MetingLike {
+  header: Record<string, string>;
+  isFormat: boolean;
+  temp: Record<string, any>;
+  raw: string | null;
+  error: string | null;
+  status: string | null;
+  info: { statusCode: number; headers: Record<string, string> } | null;
+  _curl(url: string, payload?: any, headerOnly?: boolean): Promise<any>;
+  _exec(api: ApiConfig): Promise<string>;
+  format(format: boolean): any;
+}
+
+export interface SearchOption {
+  type?: string | number;
+  limit?: number;
+  page?: number;
+}
+
+export interface FormattedSong {
+  id: string | number;
+  name: string;
+  artist: string[];
+  album: string;
+  pic_id: string | number;
+  url_id: string | number;
+  lyric_id: string | number;
+  source: string;
+}
+
 export default class BaseProvider {
-  constructor(meting) {
+  protected meting: MetingLike;
+  protected name: string;
+
+  constructor(meting: MetingLike) {
     this.meting = meting;
     this.name = 'base';
   }
@@ -12,7 +55,7 @@ export default class BaseProvider {
    * 获取平台的请求头配置
    * @returns {Object} 请求头对象
    */
-  getHeaders() {
+  getHeaders(): Record<string, string> {
     return {};
   }
 
@@ -22,7 +65,7 @@ export default class BaseProvider {
    * @param {Object} [option={}] 搜索选项
    * @returns {Object} API 配置对象
    */
-  search(keyword, option = {}) {
+  search(keyword: string, option: SearchOption = {}): ApiConfig {
     throw new Error(`${this.name} provider must implement search method`);
   }
 
@@ -31,7 +74,7 @@ export default class BaseProvider {
    * @param {string} id 歌曲ID
    * @returns {Object} API 配置对象
    */
-  song(id) {
+  song(id: string): ApiConfig {
     throw new Error(`${this.name} provider must implement song method`);
   }
 
@@ -40,7 +83,7 @@ export default class BaseProvider {
    * @param {string} id 专辑ID
    * @returns {Object} API 配置对象
    */
-  album(id) {
+  album(id: string): ApiConfig {
     throw new Error(`${this.name} provider must implement album method`);
   }
 
@@ -50,7 +93,7 @@ export default class BaseProvider {
    * @param {number} limit 限制数量
    * @returns {Object} API 配置对象
    */
-  artist(id, limit = 50) {
+  artist(id: string, limit: number = 50): ApiConfig {
     throw new Error(`${this.name} provider must implement artist method`);
   }
 
@@ -59,7 +102,7 @@ export default class BaseProvider {
    * @param {string} id 播放列表ID
    * @returns {Object} API 配置对象
    */
-  playlist(id) {
+  playlist(id: string): ApiConfig {
     throw new Error(`${this.name} provider must implement playlist method`);
   }
 
@@ -69,7 +112,7 @@ export default class BaseProvider {
    * @param {number} br 比特率
    * @returns {Object} API 配置对象
    */
-  url(id, br = 320) {
+  url(id: string, br: number = 320): ApiConfig {
     throw new Error(`${this.name} provider must implement url method`);
   }
 
@@ -78,7 +121,7 @@ export default class BaseProvider {
    * @param {string} id 歌曲ID
    * @returns {Object} API 配置对象
    */
-  lyric(id) {
+  lyric(id: string): ApiConfig {
     throw new Error(`${this.name} provider must implement lyric method`);
   }
 
@@ -88,7 +131,7 @@ export default class BaseProvider {
    * @param {number} size 图片尺寸
    * @returns {Promise<string>} 图片URL的JSON字符串
    */
-  async pic(id, size = 300) {
+  async pic(id: string, size: number = 300): Promise<string> {
     throw new Error(`${this.name} provider must implement pic method`);
   }
 
@@ -97,7 +140,7 @@ export default class BaseProvider {
    * @param {Object} data 原始数据
    * @returns {Object} 格式化后的数据
    */
-  format(data) {
+  format(data: any): FormattedSong {
     throw new Error(`${this.name} provider must implement format method`);
   }
 
@@ -106,7 +149,7 @@ export default class BaseProvider {
    * @param {string} result 原始结果
    * @returns {string} 解码后的结果
    */
-  urlDecode(result) {
+  async urlDecode(result: string): Promise<string> {
     // 默认实现，子类可以覆盖
     return result;
   }
@@ -116,7 +159,7 @@ export default class BaseProvider {
    * @param {string} result 原始结果
    * @returns {string} 解码后的结果
    */
-  lyricDecode(result) {
+  async lyricDecode(result: string): Promise<string> {
     // 默认实现，子类可以覆盖
     return result;
   }
@@ -127,7 +170,7 @@ export default class BaseProvider {
    * @param {Object} meting Meting 实例
    * @returns {string} 处理后的结果
    */
-  async executeRequest(api, meting) {
+  async executeRequest(api: ApiConfig, meting: MetingLike): Promise<string> {
     // 如果有编码方法，先进行编码
     if (api.encode) {
       api = await this.handleEncode(api);
@@ -135,7 +178,7 @@ export default class BaseProvider {
 
     // 处理 GET 请求的参数
     if (api.method === 'GET' && api.body) {
-      const params = new URLSearchParams(api.body);
+      const params = new URLSearchParams(api.body as Record<string, string>);
       api.url += '?' + params.toString();
       api.body = null;
     }
@@ -145,10 +188,10 @@ export default class BaseProvider {
 
     // 如果不需要格式化，直接返回原始数据
     if (!meting.isFormat) {
-      return meting.raw;
+      return meting.raw!;
     }
 
-    let data = meting.raw;
+    let data = meting.raw!;
 
     // 如果有解码方法，进行解码
     if (api.decode) {
@@ -168,7 +211,7 @@ export default class BaseProvider {
    * @param {Object} api API 配置对象
    * @returns {Object} 编码后的 API 配置
    */
-  async handleEncode(api) {
+  async handleEncode(api: ApiConfig): Promise<ApiConfig> {
     // 子类可以覆盖此方法来处理特定的编码逻辑
     return api;
   }
@@ -179,7 +222,7 @@ export default class BaseProvider {
    * @param {string} data 原始数据
    * @returns {string} 解码后的数据
    */
-  async handleDecode(decodeType, data) {
+  async handleDecode(decodeType: string, data: string): Promise<string> {
     // 根据解码类型调用相应的方法
     if (decodeType.includes('url')) {
       return this.urlDecode(data);
@@ -196,8 +239,8 @@ export default class BaseProvider {
    * @param {Object} meting Meting 实例
    * @returns {string} 清理后的数据
    */
-  cleanData(raw, rule, meting) {
-    let data;
+  cleanData(raw: string, rule: string | undefined, meting: MetingLike): string {
+    let data: any;
     try {
       data = JSON.parse(raw);
     } catch (e) {
@@ -231,17 +274,17 @@ export default class BaseProvider {
    * @param {string} rule 提取规则
    * @returns {Object} 提取后的数据
    */
-  pickupData(array, rule) {
+  pickupData(array: any, rule: string): any {
     const parts = rule.split('.');
-    let result = array;
-    
+    let result: any = array;
+
     for (const part of parts) {
       if (!result || typeof result !== 'object' || !(part in result)) {
         return {};
       }
       result = result[part];
     }
-    
+
     return result;
   }
 }

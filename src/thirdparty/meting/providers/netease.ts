@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import BaseProvider from './base.js';
+import type { ApiConfig, SearchOption } from './base.js';
 
 // eapi 相关常量
 const EAPI_KEY = 'e82ckenh8dichen8';
@@ -9,7 +10,7 @@ const EAPI_IV = Buffer.from('0102030405060708');
  * 网易云音乐平台提供者
  */
 export default class NeteaseProvider extends BaseProvider {
-  constructor(meting) {
+  constructor(meting: any) {
     super(meting);
     this.name = 'netease';
   }
@@ -19,17 +20,17 @@ export default class NeteaseProvider extends BaseProvider {
    * @param {string} cookieStr - Cookie 字符串
    * @returns {Object} Cookie 键值对对象
    */
-  _parseCookie(cookieStr) {
-    const cookies = {};
+  _parseCookie(cookieStr: string): Record<string, string> {
+    const cookies: Record<string, string> = {};
     if (!cookieStr) return cookies;
-    
+
     cookieStr.split(';').forEach(pair => {
       const [key, ...valueParts] = pair.trim().split('=');
       if (key && valueParts.length > 0) {
         cookies[key.trim()] = valueParts.join('=').trim();
       }
     });
-    
+
     return cookies;
   }
 
@@ -38,7 +39,7 @@ export default class NeteaseProvider extends BaseProvider {
    * @param {Object} cookies - Cookie 键值对对象
    * @returns {string} Cookie 字符串
    */
-  _stringifyCookie(cookies) {
+  _stringifyCookie(cookies: Record<string, string>): string {
     return Object.entries(cookies)
       .map(([key, value]) => `${key}=${value}`)
       .join('; ');
@@ -48,11 +49,11 @@ export default class NeteaseProvider extends BaseProvider {
    * 获取网易云音乐的请求头配置（EAPI）
    * 支持 Cookie 合并：用户提供的 Cookie 会覆盖默认 Cookie 中的同名键
    */
-  getHeaders() {
+  getHeaders(): Record<string, string> {
     const timestamp = Date.now().toString();
     const deviceId = this._generateDeviceId();
 
-    const defaultCookies = {
+    const defaultCookies: Record<string, string> = {
       osver: 'android',
       appver: '8.7.01',
       os: 'android',
@@ -84,7 +85,7 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 搜索歌曲
    */
-  search(keyword, option = {}) {
+  search(keyword: string, option: SearchOption = {}): ApiConfig {
     return {
       method: 'POST',
       url: 'http://music.163.com/api/cloudsearch/pc',
@@ -103,7 +104,7 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 获取歌曲详情
    */
-  song(id) {
+  song(id: string): ApiConfig {
     return {
       method: 'POST',
       url: 'http://music.163.com/api/v3/song/detail/',
@@ -118,7 +119,7 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 获取专辑信息
    */
-  album(id) {
+  album(id: string): ApiConfig {
     return {
       method: 'POST',
       url: `http://music.163.com/api/v1/album/${id}`,
@@ -138,7 +139,7 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 获取艺术家作品
    */
-  artist(id, limit = 50) {
+  artist(id: string, limit: number = 50): ApiConfig {
     return {
       method: 'POST',
       url: `http://music.163.com/api/v1/artist/${id}`,
@@ -156,7 +157,7 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 获取播放列表
    */
-  playlist(id) {
+  playlist(id: string): ApiConfig {
     return {
       method: 'POST',
       url: 'http://music.163.com/api/v6/playlist/detail',
@@ -174,7 +175,7 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 获取音频播放链接
    */
-  url(id, br = 320) {
+  url(id: string, br: number = 320): ApiConfig {
     return {
       method: 'POST',
       url: 'http://music.163.com/api/song/enhance/player/url',
@@ -190,7 +191,7 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 获取歌词
    */
-  lyric(id) {
+  lyric(id: string): ApiConfig {
     return {
       method: 'POST',
       url: 'http://music.163.com/api/song/lyric',
@@ -209,7 +210,7 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 获取封面图片
    */
-  async pic(id, size = 300) {
+  async pic(id: string, size: number = 300): Promise<string> {
     const url = `https://p3.music.126.net/${this._encryptId(id)}/${id}.jpg?param=${size}y${size}`;
     return JSON.stringify({ url: url });
   }
@@ -217,8 +218,8 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 格式化网易云音乐数据
    */
-  format(data) {
-    const result = {
+  format(data: any): any {
+    const result: any = {
       id: data.id,
       name: data.name,
       artist: [],
@@ -228,25 +229,25 @@ export default class NeteaseProvider extends BaseProvider {
       lyric_id: data.id,
       source: 'netease'
     };
-    
+
     if (data.al.picUrl) {
       const match = data.al.picUrl.match(/\/(\d+)\./);
       if (match) {
         result.pic_id = match[1];
       }
     }
-    
-    data.ar.forEach(artist => {
+
+    data.ar.forEach((artist: any) => {
       result.artist.push(artist.name);
     });
-    
+
     return result;
   }
 
   /**
    * 处理网易云音乐的编码逻辑
    */
-  async handleEncode(api) {
+  async handleEncode(api: ApiConfig): Promise<ApiConfig> {
     if (api.encode === 'netease_eapi') {
       return this.eapiEncrypt(api);
     }
@@ -256,7 +257,7 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 网易云音乐 EAPI 加密
    */
-  async eapiEncrypt(api) {
+  async eapiEncrypt(api: ApiConfig): Promise<ApiConfig> {
     const text = JSON.stringify(api.body);
     const url = api.url.replace(/https?:\/\/[^\/]+/, '');
 
@@ -285,14 +286,14 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 网易云音乐 URL 解码
    */
-  urlDecode(result) {
+  async urlDecode(result: string): Promise<string> {
     const data = JSON.parse(result);
-    let url;
-    
+    let url: any;
+
     if (data.data[0].uf && data.data[0].uf.url) {
       data.data[0].url = data.data[0].uf.url;
     }
-    
+
     if (data.data[0].url) {
       url = {
         url: data.data[0].url,
@@ -306,20 +307,20 @@ export default class NeteaseProvider extends BaseProvider {
         br: -1
       };
     }
-    
+
     return JSON.stringify(url);
   }
 
   /**
    * 网易云音乐歌词解码
    */
-  lyricDecode(result) {
+  async lyricDecode(result: string): Promise<string> {
     const data = JSON.parse(result);
     const lyricData = {
       lyric: (data.lrc && data.lrc.lyric) ? data.lrc.lyric : '',
       tlyric: (data.tlyric && data.tlyric.lyric) ? data.tlyric.lyric : ''
     };
-    
+
     return JSON.stringify(lyricData);
   }
 
@@ -328,11 +329,11 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 生成随机 IP 地址
    */
-  _generateRandomIP() {
+  _generateRandomIP(): string {
     const min = 1884815360; // 112.74.200.0
     const max = 1884890111; // 112.74.243.255
     const randomInt = Math.floor(Math.random() * (max - min + 1)) + min;
-    
+
     return [
       (randomInt >>> 24) & 0xFF,
       (randomInt >>> 16) & 0xFF,
@@ -344,7 +345,7 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 生成随机十六进制字符串
    */
-  _getRandomHex(length) {
+  _getRandomHex(length: number): string {
     return crypto.randomBytes(Math.ceil(length / 2))
       .toString('hex')
       .slice(0, length);
@@ -353,7 +354,7 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 生成设备 ID
    */
-  _generateDeviceId() {
+  _generateDeviceId(): string {
     // 生成类似移动端的设备 ID
     const randomBytes = crypto.randomBytes(16);
     const deviceId = randomBytes.toString('hex').toUpperCase();
@@ -363,40 +364,40 @@ export default class NeteaseProvider extends BaseProvider {
   /**
    * 网易云音乐 ID 加密
    */
-  _encryptId(id) {
+  _encryptId(id: string): string {
     const magic = '3go8&$8*3*3h0k(2)2'.split('');
     const song_id = String(id).split('');
-    
+
     for (let i = 0; i < song_id.length; i++) {
       song_id[i] = String.fromCharCode(
         song_id[i].charCodeAt(0) ^ magic[i % magic.length].charCodeAt(0)
       );
     }
-    
+
     const result = crypto.createHash('md5')
       .update(song_id.join(''), 'binary')
       .digest('base64')
       .replace(/\//g, '_')
       .replace(/\+/g, '-');
-    
+
     return result;
   }
 
   /**
    * 大数运算相关工具方法
    */
-  _bchexdec(hex) {
+  _bchexdec(hex: string): bigint {
     return BigInt('0x' + hex);
   }
 
-  _str2hex(str) {
+  _str2hex(str: string): string {
     return Buffer.from(str, 'utf8').toString('hex');
   }
 
   /**
    * 大数幂模运算
    */
-  _powMod(base, exponent, modulus) {
+  _powMod(base: bigint, exponent: bigint, modulus: bigint): bigint {
     if (modulus === 1n) return 0n;
     let result = 1n;
     base = base % modulus;

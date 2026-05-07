@@ -28,3 +28,8 @@ lerna-debug.log*
 
 # misc
 .DS_Store
+
+# AI Tools
+
+CLAUDE.md
+.claude/
