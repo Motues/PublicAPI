@@ -4,11 +4,8 @@ import { LRUCache } from 'lru-cache'
 import { loadMetingSettings } from '../utils/dataLoader.js';
 import { logger } from '../utils/logger.js';
 
-// Initialize with a music platform
-const meting = new Meting('netease'); // 'netease', 'tencent', 'kugou', 'baidu', 'kuwo'
-
 // Enable data formatting for consistent output
-meting.format(true);
+const formatMeting = (m: Meting) => { m.format(true); return m; };
 
 const musicInfoCache = new LRUCache<string, string>({
   max: 1000,
@@ -19,9 +16,9 @@ export const getMusicData = async (c: Context) => {
   const server = c.req.query('server') || 'netease';
   const type = c.req.query('type');
   const id = c.req.query('id');
-  const br = c.req.query('br') || '320';
-  const size = c.req.query('size') || '300';
-  const limit = c.req.query('limit') || '5';
+  const br = Math.min(parseInt(c.req.query('br') || '320'), 999);
+  const size = Math.min(parseInt(c.req.query('size') || '300'), 2000);
+  const limit = Math.min(parseInt(c.req.query('limit') || '5'), 100);
 
   // 必填参数校验
   if (!id) {
@@ -36,7 +33,8 @@ export const getMusicData = async (c: Context) => {
     return c.json({ error: 'Invalid server parameter' }, 400);
   }
 
-  meting.site(server);
+  // 每个请求创建独立的 Meting 实例，避免并发状态串扰
+  const meting = formatMeting(new Meting(server));
 
   if (server === 'netease') {
     const settings = loadMetingSettings();
@@ -50,7 +48,7 @@ export const getMusicData = async (c: Context) => {
   try {
     let result;
     if (type === 'search') {
-      const researchResult = await meting.search(id, { limit: parseInt(limit) });
+      const researchResult = await meting.search(id, { limit });
       result = JSON.parse(researchResult);
     } else if (type === 'playlist') {
       const playlistResult = await meting.playlist(id);
@@ -83,11 +81,11 @@ export const getMusicData = async (c: Context) => {
           result = { artist: songInfo.artist };
           break;
         case 'url':
-          result = await meting.url(songInfo.url_id, parseInt(br));
+          result = await meting.url(songInfo.url_id, br);
           result = JSON.parse(result);
           break;
         case 'cover':
-          result = await meting.pic(songInfo.pic_id, parseInt(size));
+          result = await meting.pic(songInfo.pic_id, size);
           result = JSON.parse(result);
           break;
         case 'lyric':

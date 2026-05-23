@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { marked } from 'marked';
 import { logger } from '../../utils/logger.js';
+import { escapeHtml } from '../../utils/html.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,7 +40,8 @@ await preloadDocs();
 
 // --- 路由处理函数 ---
 export const docPage = async (c) => {
-  const subPath = c.req.param('path') // 获取匹配路径
+  const subPath = c.req.param('path'); // 获取匹配路径
+  const safePath = escapeHtml(subPath);
   const htmlContent = docCache.get(subPath);
 
   // 匹配失败返回错误页面
@@ -47,7 +49,7 @@ export const docPage = async (c) => {
     return c.html(`
       <div style="text-align:center; margin-top:100px; font-family:monospace;">
         <h1 style="color:#d73a49">404 - DOCUMENT NOT FOUND</h1>
-        <p>找不到名为 <code>${subPath}</code> 的文档内容。</p>
+        <p>找不到名为 <code>${safePath}</code> 的文档内容。</p>
         <a href="/">返回首页</a>
       </div>
     `, 404);
@@ -60,7 +62,7 @@ export const docPage = async (c) => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${subPath.toUpperCase()} - Documentation</title>
+      <title>${safePath.toUpperCase()} - Documentation</title>
       <style>
         :root { --border-color: #333; --accent-color: #d73a49; --code-bg: #f6f8fa; }
         body {
@@ -87,7 +89,7 @@ export const docPage = async (c) => {
     <body>
       <a href="/" class="back-link">← 返回系统终端</a>
       <div class="doc-container">
-        <div class="doc-header">[DOCUMENTATION] /docs/${subPath}</div>
+        <div class="doc-header">[DOCUMENTATION] /docs/${safePath}</div>
         <article class="markdown-body">
           ${htmlContent}
         </article>

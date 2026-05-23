@@ -6,7 +6,7 @@ export const createCorsMiddleware = (allowedOrigins: string[]) => {
       if (!allowedOrigins || allowedOrigins.length === 0 || allowedOrigins.includes('*')) {
         return origin;
       }
-      return allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+      return allowedOrigins.includes(origin) ? origin : '';
     },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],

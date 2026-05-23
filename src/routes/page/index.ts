@@ -2,6 +2,7 @@ import { getStats } from '../../utils/middleware/counter.js';
 import { config } from '../../utils/config.js';
 import { loadServices, loadSiteConfig } from '../../utils/dataLoader.js';
 import { getSystemInfo } from '../../utils/systemInfo.js';
+import { escapeHtml } from '../../utils/html.js';
 
 const osName = getSystemInfo().osName || 'Unknown OS';
 export const indexPage = async (c) => {
@@ -10,15 +11,15 @@ export const indexPage = async (c) => {
   const currentYear = new Date().getFullYear();
   const services = loadServices(), siteConfig = loadSiteConfig();
 
-  const siteName = siteConfig.siteName || 'Public API Server';
+  const siteName = escapeHtml(siteConfig.siteName || 'Public API Server');
   const siteDescriptions = siteConfig.description.length > 0 ? siteConfig.description : ['Welcome to Public API Server'];
-  const siteFooter = siteConfig.footer || 'Status: Online';
+  const siteFooter = escapeHtml(siteConfig.footer || 'Status: Online');
 
   const serviceCards = services.map(service => {
     const isOnline = service.status === 'open';
     return `
-      <a class="api-item" href="${service.url}" target="_blank">
-        <span>${service.name}</span>
+      <a class="api-item" href="${escapeHtml(service.url)}" target="_blank">
+        <span>${escapeHtml(service.name)}</span>
         <span class="status-dot ${isOnline ? 'on' : 'off'}"></span>
       </a>`;
   }).join('\n');
@@ -70,7 +71,7 @@ export const indexPage = async (c) => {
         <div id="intro-text"></div>
       </div>
 
-      <div class="main-content" id="main-content"> 
+      <div class="main-content" id="main-content">
         <div class="box">
           <div class="box-title">[OS] 系统信息</div>
           <div class="sys-header">
@@ -132,7 +133,7 @@ export const indexPage = async (c) => {
 
           function typeWriter() {
             const currentText = descriptions[textIndex];
-            
+
             if (isDeleting) {
               element.textContent = currentText.substring(0, charIndex - 1);
               charIndex--;
@@ -162,14 +163,14 @@ export const indexPage = async (c) => {
           const introOverlay = document.getElementById('intro-overlay');
           const introText = document.getElementById('intro-text');
           const mainContent = document.getElementById('main-content');
-          
+
           let descIndex = Math.floor(Math.random() * descriptions.length);
           let charIndex = 0;
           let typeSpeed = 80;
 
           function introTypeWriter() {
             const currentDesc = descriptions[descIndex];
-            
+
             if (charIndex < currentDesc.length) {
               introText.textContent = currentDesc.substring(0, charIndex + 1);
               charIndex++;

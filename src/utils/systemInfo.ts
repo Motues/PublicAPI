@@ -1,4 +1,5 @@
 import os from 'os';
+import fs from 'fs';
 
 export function getSimpleOSName(): string {
   const platform = os.platform();
@@ -47,7 +48,6 @@ export function getSimpleOSName(): string {
     }
     
     try {
-      const fs = require('fs');
       if (fs.existsSync('/etc/os-release')) {
         const content = fs.readFileSync('/etc/os-release', 'utf-8');
         const nameMatch = content.match(/^NAME=["']?([^"'\n]+)["']?$/m);
@@ -77,7 +77,6 @@ export function getSimpleOSName(): string {
 
 function checkIfRunningInDocker(): boolean {
   try {
-    const fs = require('fs');
     return fs.existsSync('/.dockerenv') || 
            fs.existsSync('/run/.containerenv') ||
            (fs.existsSync('/proc/1/cgroup') && 
