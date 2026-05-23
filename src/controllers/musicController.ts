@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import Meting from '../thirdparty/meting/meting.js';
 import { LRUCache } from 'lru-cache'
 import { loadMetingSettings } from '../utils/dataLoader.js';
+import { logger } from '../utils/logger.js';
 
 // Initialize with a music platform
 const meting = new Meting('netease'); // 'netease', 'tencent', 'kugou', 'baidu', 'kuwo'
@@ -41,11 +42,10 @@ export const getMusicData = async (c: Context) => {
     const settings = loadMetingSettings();
     if (settings.cookie && settings.cookie.trim() !== '') {
       meting.cookie(settings.cookie);
-      // console.log('[Music Cookie] Cookie set successfully.');
     }
   }
 
-  console.log(`[Music Request] Server: ${server}, Type: ${type}, ID: ${id}`);
+  logger.info(`Server: ${server}, Type: ${type}, ID: ${id}`, 'Music');
 
   try {
     let result;
@@ -61,18 +61,17 @@ export const getMusicData = async (c: Context) => {
       if (musicInfoCache.has(id)) {
         // 缓存命中
         details = musicInfoCache.get(id);
-        console.log('[Music Cache] Cache hit for song ID:', id);
+        logger.info(`Cache hit for song ID: ${id}`, 'Music');
       } else {
         // 缓存未命中
         details = await meting.song(id);
         musicInfoCache.set(id, details);
       }
       if (!details) {
-        console.error('[Music Error] No details found for song ID:', id);
+        logger.error(`No details found for song ID: ${id}`, undefined, 'Music');
         return c.json({ error: 'Song not found' }, 404);
       }
       const songInfo = JSON.parse(details)[0]; // 获取第一首歌曲的信息
-      // console.log('Song Info:', songInfo);
       switch (type) {
         case 'details':
           result = songInfo;
@@ -98,11 +97,10 @@ export const getMusicData = async (c: Context) => {
       }
     }
 
-    // console.log('Result:', result); // 输出结果以供调试
     return c.json(result);
 
   } catch (error) {
-    console.error('[Music Error] Internal Server Error:', error);
+    logger.error('Internal Server Error:', error, 'Music');
     return c.json({ error: 'Internal Server Error' }, 500);
   }
 };

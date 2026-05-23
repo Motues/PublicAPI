@@ -9,6 +9,7 @@ import { counterMiddleware} from './utils/middleware/counter.js';
 import { createRateLimitMiddleware } from './utils/middleware/rateLimiter.js';
 import { lruCacheMiddleware } from './utils/middleware/lruCache.js';
 import { config } from './utils/config.js';
+import { logger } from './utils/logger.js';
 
 const app = new Hono()
 
@@ -39,7 +40,7 @@ if(config.avatarOpen) app.route('/avatar', avatarRouter);
 
 // 错误处理
 app.onError((err, c) => {
-  console.error(`${err}`);
+  logger.error(`${err}`);
   return c.json({ message: 'Internal Server Error' }, 500);
 });
 
@@ -48,7 +49,7 @@ serve({
   port: config.port,
 });
 
-console.log(`Open Service: ${config.musicOpen ? 'Music' : ''} ${config.avatarOpen ? 'Avatar' : ''}`)
-console.log(`Server is running on http://localhost:${config.port}`);
+logger.info(`Open Service: ${config.musicOpen ? 'Music' : ''} ${config.avatarOpen ? 'Avatar' : ''}`);
+logger.info(`Server is running on http://localhost:${config.port}`);
 
 export default app;

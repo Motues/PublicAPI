@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { marked } from 'marked';
+import { logger } from '../../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,25 +12,25 @@ const docCache = new Map<string, string>();
 // --- 预加载逻辑 ---
 const preloadDocs = async () => {
   const docsDir = path.join(__dirname, '../../../doc');
-  
+
   try {
     if (!fs.existsSync(docsDir)) return;
 
     const folders = fs.readdirSync(docsDir);
-    
+
     for (const folder of folders) {
       const readmePath = path.join(docsDir, folder, 'README.md');
-      
+
       if (fs.existsSync(readmePath)) {
         const rawContent = fs.readFileSync(readmePath, 'utf-8');
         // 预先将 Markdown 转换为 HTML
         const html = await marked(rawContent);
         docCache.set(folder, html);
-        console.log(`[Doc Preloader] Loaded: ${folder}`);
+        logger.info(`Loaded: ${folder}`, 'Doc');
       }
     }
   } catch (err) {
-    console.error('[Doc Preloader] Error during preloading:', err);
+    logger.error('Error during preloading:', err, 'Doc');
   }
 };
 
@@ -62,9 +63,9 @@ export const docPage = async (c) => {
       <title>${subPath.toUpperCase()} - Documentation</title>
       <style>
         :root { --border-color: #333; --accent-color: #d73a49; --code-bg: #f6f8fa; }
-        body { 
-          max-width: 780px; margin: 0 auto; padding: 40px 20px; 
-          font-family: -apple-system, "SFMono-Regular", Consolas, sans-serif; 
+        body {
+          max-width: 780px; margin: 0 auto; padding: 40px 20px;
+          font-family: -apple-system, "SFMono-Regular", Consolas, sans-serif;
           line-height: 1.6; color: #24292e;
         }
         .doc-container { border: 1px solid var(--border-color); padding: 30px; position: relative; }

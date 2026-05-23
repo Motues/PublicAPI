@@ -1,9 +1,10 @@
 import { LRUCache } from 'lru-cache'
 import { createHash } from 'node:crypto';
+import { logger } from '../logger.js';
 
 const cacheOptions = {
   max: 500,  // 最大数量
-  
+
   ttl: 1000 * 60 * 5, // 默认过期时间 (毫秒)
 
   allowStale: false, // 是否允许使用过期的条目
@@ -25,16 +26,16 @@ export const lruCacheMiddleware = (ttlSeconds?: number) => {
   return async (c: any, next: any) => {
 
     const key = `cache:${generateKey(c.req.url)}`;
-    
+
     const cached = localCache.get(key);
     if (cached) {
       c.header('X-Cache', 'HIT');
-      console.log('[Cache hit] ', key);
+      logger.info(key, 'Cache');
       if (cached?.__isRedirect) {
         return c.redirect(cached.url);
       }
-      return typeof cached === 'string' 
-        ? c.body(cached, 200, { 'Content-Type': 'image/svg+xml' }) 
+      return typeof cached === 'string'
+        ? c.body(cached, 200, { 'Content-Type': 'image/svg+xml' })
         : c.json(cached);
     }
 
@@ -64,10 +65,10 @@ export const lruCacheMiddleware = (ttlSeconds?: number) => {
           });
         }
       } catch (e) {
-        console.error('Failed to cache response:', e);
+        logger.error('Failed to cache response:', e, 'Cache');
       }
     }
-    
+
     c.header('X-Cache', 'MISS');
   }
 }

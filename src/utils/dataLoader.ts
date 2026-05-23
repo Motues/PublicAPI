@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { logger } from './logger.js';
 
 const CACHE_DURATION = 5000; // 5秒缓存
 
@@ -13,7 +14,7 @@ let serviceCache: ServiceItem[] | null = null;
 let lastLoadTime_list: number = 0;
 export function loadServices(): ServiceItem[] {
   const now = Date.now();
-  
+
   if (serviceCache && (now - lastLoadTime_list) < CACHE_DURATION) {
     return serviceCache;
   }
@@ -21,26 +22,26 @@ export function loadServices(): ServiceItem[] {
   try {
     const configDir = join(process.cwd(), 'data', 'config');
     const configPath = join(configDir, 'services.json');
-    
+
     if (!existsSync(configDir)) {
       mkdirSync(configDir, { recursive: true });
     }
-    
+
     if (!existsSync(configPath)) {
       const defaultContent = '[]';
       writeFileSync(configPath, defaultContent, 'utf-8');
-      console.log('Created default services config file');
+      logger.info('Created default services config file', 'Config');
     }
-    
+
     const fileContent = readFileSync(configPath, 'utf-8');
     const services: ServiceItem[] = JSON.parse(fileContent);
-    
+
     serviceCache = services;
     lastLoadTime_list = now;
-    
+
     return services;
   } catch (error) {
-    console.error('Failed to load services config:', error);
+    logger.error('Failed to load services config:', error, 'Config');
     return [];
   }
 }
@@ -62,7 +63,7 @@ const defaultConfig: SiteConfig = {
 
 export function loadSiteConfig(): SiteConfig {
   const now = Date.now();
-  
+
   if (siteConfigCache && (now - lastLoadTime_site) < CACHE_DURATION) {
     return siteConfigCache;
   }
@@ -70,32 +71,32 @@ export function loadSiteConfig(): SiteConfig {
   try {
     const configDir = join(process.cwd(), 'data', 'config');
     const configPath = join(configDir, 'site.json');
-    
+
     if (!existsSync(configDir)) {
       mkdirSync(configDir, { recursive: true });
     }
-    
+
     if (!existsSync(configPath)) {
       writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
-      console.log('Created default site config file');
+      logger.info('Created default site config file', 'Config');
       siteConfigCache = defaultConfig;
       lastLoadTime_site = now;
       return defaultConfig;
     }
-    
+
     const fileContent = readFileSync(configPath, 'utf-8');
     const config: SiteConfig = JSON.parse(fileContent);
-    
+
     siteConfigCache = {
       siteName: config.siteName || defaultConfig.siteName,
       description: Array.isArray(config.description) ? config.description : defaultConfig.description,
       footer: config.footer || defaultConfig.footer
     };
     lastLoadTime_site = now;
-    
+
     return siteConfigCache;
   } catch (error) {
-    console.error('Failed to load site config:', error);
+    logger.error('Failed to load site config:', error, 'Config');
     return defaultConfig;
   }
 }
@@ -113,7 +114,7 @@ const defaultMetingConfig: MetingConfig = {
 
 export function loadMetingSettings(): MetingConfig {
   const now = Date.now();
-  
+
   if (metingCookieCache && (now - lastLoadTime_meting) < CACHE_DURATION) {
     return metingCookieCache;
   }
@@ -121,30 +122,30 @@ export function loadMetingSettings(): MetingConfig {
   try {
     const configDir = join(process.cwd(), 'data', 'config');
     const configPath = join(configDir, 'meting.json');
-    
+
     if (!existsSync(configDir)) {
       mkdirSync(configDir, { recursive: true });
     }
-    
+
     if (!existsSync(configPath)) {
       writeFileSync(configPath, JSON.stringify(defaultMetingConfig, null, 2), 'utf-8');
-      console.log('Created default meting config file');
+      logger.info('Created default meting config file', 'Config');
       metingCookieCache = defaultMetingConfig;
       lastLoadTime_meting = now;
       return defaultMetingConfig;
     }
-    
+
     const fileContent = readFileSync(configPath, 'utf-8');
     const config: MetingConfig = JSON.parse(fileContent);
-    
+
     metingCookieCache = {
       cookie: config.cookie || ''
     };
     lastLoadTime_meting = now;
-    
+
     return metingCookieCache;
   } catch (error) {
-    console.error('Failed to load meting settings:', error);
+    logger.error('Failed to load meting settings:', error, 'Config');
     return defaultMetingConfig;
   }
 }
