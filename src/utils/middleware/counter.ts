@@ -22,7 +22,7 @@ setInterval(async () => {
 }, 5000);
 
 export const counterMiddleware = async (c: Context, next: Next) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
 
   totalCount++;
   if (!dailyStats[today]) {
@@ -39,7 +39,7 @@ export const counterMiddleware = async (c: Context, next: Next) => {
 };
 
 export const getStats = async () => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
   return {
     total: totalCount,
     today: dailyStats[today] || 0

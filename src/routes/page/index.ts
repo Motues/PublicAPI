@@ -7,7 +7,7 @@ import { escapeHtml } from '../../utils/html.js';
 const osName = getSystemInfo().osName || 'Unknown OS';
 export const indexPage = async (c) => {
   const stats = await getStats();
-  const currentTime = new Date().toLocaleString('zh-CN', { hour12: false /*, timeZone: 'Asia/Shanghai' */ });
+  const currentTime = new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
   const currentYear = new Date().getFullYear();
   const services = loadServices(), siteConfig = loadSiteConfig();
 

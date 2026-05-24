@@ -1,6 +1,7 @@
 const timestamp = (): string => {
   const now = new Date();
   return now.toLocaleString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
