@@ -59,8 +59,8 @@ export const indexPage = async (c) => {
         .cmd { color: var(--accent-color); }
         #intro-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.8s ease-out, visibility 0.8s ease-out; }
         #intro-overlay.fade-out { opacity: 0; visibility: hidden; }
-        #intro-text { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace, 'Noto Serif SC', -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 20px; color: var(--text-color); border-right: 2px solid var(--accent-color); padding-right: 5px; animation: cursor-blink 0.7s step-end infinite; }
-        @keyframes cursor-blink { 50% { border-color: transparent; } }
+        #intro-text { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace, 'Noto Serif SC', -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 20px; color: var(--text-color); padding-right: 5px; text-align: center; display: inline-block; }
+        #intro-text::after { content: '|'; animation: blink 0.7s step-end infinite; color: var(--accent-color); margin-left: 2px; }
         #main-content {  opacity: 0; transition: opacity 0.6s ease-in; }
         #main-content.visible { opacity: 1; }
       </style>

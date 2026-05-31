@@ -25,8 +25,8 @@ if(config.musicOpen) app.use('/music/*', counterMiddleware);
 if(config.avatarOpen) app.use('/avatar/*', counterMiddleware);
 
 //  LRU 接口缓存
-if(config.musicOpen) app.use('/music/*', lruCacheMiddleware(300));
-if(config.avatarOpen) app.use('/avatar/*', lruCacheMiddleware(300));
+if(config.musicOpen) app.use('/music/*', lruCacheMiddleware(60 * 30)); // 音乐接口缓存30分钟
+if(config.avatarOpen) app.use('/avatar/*', lruCacheMiddleware(60 * 10)); // 头像接口缓存10分钟
 
 // 首页
 app.get('/', indexPage);

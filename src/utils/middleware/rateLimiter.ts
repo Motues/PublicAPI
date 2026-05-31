@@ -1,5 +1,6 @@
 import type { Context, Next } from 'hono';
-import { getClientIP } from '../ip.js';
+import { getClientIP, getRequestOrigin } from '../ip.js';
+import { logger } from '../logger.js';
 
 interface RateLimitEntry {
   count: number;
@@ -40,6 +41,9 @@ export const createRateLimitMiddleware = (options: RateLimitOptions = {}) => {
 
   return async (c: Context, next: Next) => {
     const clientIP = getClientIP(c);
+    const referer = getRequestOrigin(c);
+
+    logger.info(`Request from IP: ${clientIP}, Referer: ${referer}`, 'IP Info');
     
     // 跳过本地测试环境
     if (clientIP === '127.0.0.1' || clientIP === '::1' || clientIP === 'localhost') {
@@ -70,6 +74,8 @@ export const createRateLimitMiddleware = (options: RateLimitOptions = {}) => {
     // 检查是否超过限制
     if (entry.count >= maxRequests) {
       const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
+      
+      logger.warn(`Rate limit exceeded for IP: ${clientIP}, Referer: ${referer}, Count: ${entry.count}/${maxRequests}`, 'RateLimit');
       
       // c.header('X-RateLimit-Limit', maxRequests.toString());
       // c.header('X-RateLimit-Remaining', '0');

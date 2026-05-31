@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import { getConnInfo } from '@hono/node-server/conninfo'
 
 /**
  * 获取客户端真实IP地址
@@ -29,5 +30,26 @@ export const getClientIP = (c: Context): string => {
   }
 
   // 默认使用Hono提供的IP
-  return 'unknown';
+  return getConnInfo(c).remote.address || 'Unknown';
 };
+
+/**
+ * 提取请求的根来源（去掉子路径）
+ * @param c Hono 的 Context 上下文
+ * @returns 格式化后的 Origin 域名或 'Direct Access'
+ */
+export function getRequestOrigin(c: Context): string {
+  const rawReferer = c.req.header('referer') || c.req.header('origin')
+  
+  if (!rawReferer) {
+    return 'Direct Access'
+  }
+
+  try {
+    // 自动剥离请求体、子路径及末尾斜杠
+    return new URL(rawReferer).origin
+  } catch {
+    // 恶意攻击或非标准 URL 时安全回退
+    return rawReferer
+  }
+}
