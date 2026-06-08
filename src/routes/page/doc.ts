@@ -65,11 +65,7 @@ export const docPage = async (c) => {
       <title>${safePath.toUpperCase()} - Documentation</title>
       <style>
         :root { --border-color: #333; --accent-color: #d73a49; --code-bg: #f6f8fa; }
-        body {
-          max-width: 780px; margin: 0 auto; padding: 40px 20px;
-          font-family: -apple-system, "SFMono-Regular", Consolas, sans-serif;
-          line-height: 1.6; color: #24292e;
-        }
+        body { max-width: 780px; margin: 0 auto; padding: 40px 20px; font-family: -apple-system, "SFMono-Regular", Consolas, sans-serif; line-height: 1.6; color: #24292e; }
         .doc-container { border: 1px solid var(--border-color); padding: 30px; position: relative; }
         .doc-header { position: absolute; top: -12px; left: 20px; background: white; padding: 0 10px; font-size: 14px; font-weight: bold; }
         h1, h2, h3 { border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
@@ -81,7 +77,7 @@ export const docPage = async (c) => {
         pre::-webkit-scrollbar-thumb {background-color: #ddd; border-radius: 10px; }
         pre::-webkit-scrollbar-thumb:hover { background-color: #bbb;}
         blockquote { border-left: 4px solid var(--accent-color); padding-left: 16px; color: #6a737d; margin: 0; }
-        a { color: #0366d6; text-decoration: none; }
+        a { color: #0366d6; text-decoration: none; word-break: break-all; overflow-wrap: break-word; }
         .back-link { margin-bottom: 20px; display: block; font-size: 14px; color: #666; text-decoration: none; }
         .back-link:hover { text-decoration: underline; }
       </style>

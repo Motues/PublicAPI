@@ -39,17 +39,20 @@ export const getClientIP = (c: Context): string => {
  * @returns 格式化后的 Origin 域名或 'Direct Access'
  */
 export function getRequestOrigin(c: Context): string {
-  const rawReferer = c.req.header('referer') || c.req.header('origin')
+  const rawReferer = c.req.header('referer') || c.req.header('origin');
   
   if (!rawReferer) {
     return 'Direct Access'
   }
 
-  try {
-    // 自动剥离请求体、子路径及末尾斜杠
-    return new URL(rawReferer).origin
-  } catch {
-    // 恶意攻击或非标准 URL 时安全回退
-    return rawReferer
-  }
+  return rawReferer;
+
+
+  // try {
+  //   // 自动剥离请求体、子路径及末尾斜杠
+  //   return new URL(rawReferer).origin
+  // } catch {
+  //   // 恶意攻击或非标准 URL 时安全回退
+  //   return rawReferer
+  // }
 }

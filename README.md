@@ -6,7 +6,7 @@
 
 ### Meting
 
-基于 [Meting](https://github.com/metowolf/meting) 的 实现的 API，支持网易云、QQ等音乐平台。
+基于 [Meting](https://github.com/metowolf/meting) 实现的 API，支持网易云、QQ等音乐平台。
 
 ### Boring Avatar
 
