@@ -31,7 +31,7 @@ export const getAvatarData = async (c: Context) => {
 
       // 检查 weavatar 是否存在
       const weavatarResponse = await fetch(weavatarUrl, { method: 'HEAD' });
-      if (weavatarResponse.ok && weavatarResponse.headers.get('x-avatar-from') === 'weavatar') {
+      if (weavatarResponse.ok && weavatarResponse.headers.get('x-avatar-from') !== 'weavatar') {
         return c.redirect(weavatarUrl);
       }
 
