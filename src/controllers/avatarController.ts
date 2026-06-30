@@ -22,19 +22,26 @@ export const getAvatarData = async (c: Context) => {
 
   logger.info(`Name: ${name}, Mode: ${mode}`, 'Avatar');
 
-  // cravatar 模式
-  if (mode === 'cravatar') {
+  // 混合模式模式
+  if (mode !== 'generate') {
     try {
       const emailHash = name.trim().toLowerCase();
       const cravatarUrl = `https://cravatar.cn/avatar/${emailHash}?s=${size}&d=retro`;
+      const weavatarUrl = `https://weavatar.com/avatar/${emailHash}?s=${size}&d=retro`;
 
-      const response = await fetch(cravatarUrl, { method: 'HEAD' });
+      // 检查 weavatar 是否存在
+      const weavatarResponse = await fetch(weavatarUrl, { method: 'HEAD' });
+      if (weavatarResponse.ok && weavatarResponse.headers.get('x-avatar-from') === 'weavatar') {
+        return c.redirect(weavatarUrl);
+      }
 
-      if (response.ok && response.headers.get('avatar-from') !== 'default') {
+      // 检查 cravatar 是否存在
+      const cravatarResponse = await fetch(cravatarUrl, { method: 'HEAD' });
+      if (cravatarResponse.ok && cravatarResponse.headers.get('avatar-from') !== 'default') {
         return c.redirect(cravatarUrl);
       }
     } catch (err) {
-      logger.error('Cravatar fetch error:', err, 'Avatar');
+      logger.error('Gravatar fetch error:', err, 'Avatar');
       logger.info('Falling back to generate mode.', 'Avatar');
       // 出错时回退到下面的生成模式
     }

@@ -11,9 +11,6 @@ importers:
       '@hono/node-server':
         specifier: ^1.19.12
         version: 1.19.12(hono@4.12.10)
-      '@meting/core':
-        specifier: ^1.6.1
-        version: 1.6.1
       boring-avatars:
         specifier: ^2.0.4
         version: 2.0.4(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -213,9 +210,6 @@ packages:
     peerDependencies:
       hono: ^4
 
-  '@meting/core@1.6.1':
-    resolution: {integrity: sha512-6LPRZlZc8hUc0Jmg74tbMBLeoyXoyttPBLoNNpybLZ6GY+de95h9w3YQGh0yDwnrSivqcHMGZ5u5VJym5PdY1w==}
-
   '@types/node@20.19.39':
     resolution: {integrity: sha512-orrrD74MBUyK8jOAD/r0+lfa1I2MO6I+vAkmAWzMYbCcgrN4lCrmK52gRFQq/JRxfYPfonkr4b0jcY7Olqdqbw==}
 
@@ -378,8 +372,6 @@ snapshots:
   '@hono/node-server@1.19.12(hono@4.12.10)':
     dependencies:
       hono: 4.12.10
-
-  '@meting/core@1.6.1': {}
 
   '@types/node@20.19.39':
     dependencies:
