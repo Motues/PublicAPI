@@ -9,8 +9,9 @@ await storage.init({
 });
 
 // 内内存聚合，避免竞态条件和频繁磁盘写入
-let totalCount = await storage.getItem('totalCount') || 0;
-const dailyStats: Record<string, number> = await storage.getItem('dailyStats') || {};
+let dailyStats: Record<string, number> = await storage.getItem('dailyStats') || {};
+// 根据 dailyStats 重新计算 totalCount，保证两者一致
+let totalCount = Object.values(dailyStats).reduce((sum, v) => sum + v, 0);
 
 // 定期刷新到磁盘（每 5 秒）
 const flushInterval = setInterval(async () => {
