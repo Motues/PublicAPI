@@ -10,7 +10,7 @@
 
 ### Boring Avatar
 
-基于 [boring-avatars](https://github.com/boringdesigners/boring-avatars) 实现的头像生成 API，并集成了 Cravatar 镜像源支持。
+基于 [Boring-avatars](https://github.com/boringdesigners/boring-avatars) 实现的头像生成 API，并集成了镜像源（[WeAvatar](https://weavatar.com/) 和 [Cravatar](https://cravatar.com/)）支持。
 
 ## 部署方式
 
