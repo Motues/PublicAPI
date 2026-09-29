@@ -12,6 +12,17 @@ const musicInfoCache = new LRUCache<string, string>({
   ttl: 1000 * 60 * 60 * 24, // 缓存24小时
 });
 
+/**
+ * 清空音乐信息缓存（管理后台修改 Cookie 等设置后调用）
+ * @returns 被清除的缓存条目数量
+ */
+export const clearMusicInfoCache = (): number => {
+  const size = musicInfoCache.size;
+  musicInfoCache.clear();
+  logger.info(`Cleared ${size} cached song details`, 'Music');
+  return size;
+};
+
 export const getMusicData = async (c: Context) => {
   const server = c.req.query('server') || 'netease';
   const type = c.req.query('type');

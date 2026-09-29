@@ -2,8 +2,10 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import musicRoutes from './routes/api/music.js';
 import avatarRouter from './routes/api/avatar.js';
+import adminApi from './routes/api/admin.js';
 import { indexPage } from './routes/page/index.js'
 import { docPage } from './routes/page/doc.js';
+import { adminPage } from './routes/page/admin.js';
 import { createCorsMiddleware } from './utils/middleware/cors.js';
 import { counterMiddleware} from './utils/middleware/counter.js';
 import { createRateLimitMiddleware } from './utils/middleware/rateLimiter.js';
@@ -33,6 +35,10 @@ app.get('/', indexPage);
 
 // 文档
 app.get('/docs/:path{.+}', docPage)
+
+// 管理后台（不在首页提供入口，需要密码登录）
+app.get('/admin', adminPage);
+app.route('/admin/api', adminApi);
 
 // 挂载 API 路由
 if(config.musicOpen) app.route('/music', musicRoutes);

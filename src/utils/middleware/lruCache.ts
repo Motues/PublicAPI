@@ -72,3 +72,14 @@ export const lruCacheMiddleware = (ttlSeconds?: number) => {
     c.header('X-Cache', 'MISS');
   }
 }
+
+/**
+ * 清空接口响应缓存（管理后台修改配置后调用）
+ * @returns 被清除的缓存条目数量
+ */
+export const clearResponseCache = (): number => {
+  const size = localCache.size;
+  localCache.clear();
+  logger.info(`Cleared ${size} cached responses`, 'Cache');
+  return size;
+}

@@ -9,5 +9,17 @@ services:
       - ALLOW_ORIGIN=https://example.com,https://yourdomain.com
       - MUSIC=open
       - AVATAR=open
+      # ===== 管理后台 /admin =====
+      # 管理员密码（不设置则首次在本机/内网访问 /admin 时初始化）
+      # - ADMIN_PASSWORD=your_password
+      # 或使用 scrypt 哈希（格式 scrypt$salt$hash，与 ADMIN_PASSWORD 二选一）
+      # 注意：值中的 $ 在 compose 里要写成 $$，例如 scrypt$$salt$$hash
+      # - ADMIN_PASSWORD_HASH=scrypt$$salt$$hash
+      # 会话签名密钥，不设置会自动生成并保存到 data/config/admin.json
+      # - ADMIN_SESSION_SECRET=your_random_secret
+      # 会话有效期（分钟）
+      # - ADMIN_SESSION_TTL=120
+      # 是否允许从公网完成首次密码初始化（默认仅本机/内网）
+      # - ADMIN_SETUP_REMOTE=false
     volumes:
       - ./data:/app/data # 数据

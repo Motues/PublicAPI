@@ -52,7 +52,7 @@ export const indexPage = async (c) => {
         .stats-info .stats-row {display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 14px; }
         .stats-label::before { content: "> "; color: var(--accent-color); font-weight: bold; }
         .stats-value b { color: #000; background: #f0f0f0; padding: 0 6px; border-radius: 2px; }
-        .footer { margin-top: 50px; padding: 15px; border: 1px solid var(--border-color); text-align: center; font-size: 12px; color: #666; }
+        .footer { margin-top: 25px; padding: 15px; border: 1px solid var(--border-color); text-align: center; font-size: 12px; color: #666; }
         .footer a { color: var(--text-color); text-decoration: none; font-weight: bold; border-bottom: 1px solid #ccc; padding: 0 2px; transition: 0.2s; }
         .footer a:hover { color: #fff; background-color: var(--border-color); border-bottom-color: var(--border-color); }
         hr { border: 0; border-top: 1px dashed #ccc; margin: 20px 0; }
