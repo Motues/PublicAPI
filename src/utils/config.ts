@@ -13,5 +13,7 @@ export const config = {
   musicOpen: process.env.MUSIC === 'open',
 
   avatarOpen: process.env.AVATAR === 'open',
-  
-} as const; 
+
+  emojiOpen: process.env.EMOJI === 'open',
+
+} as const;

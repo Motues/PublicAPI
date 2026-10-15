@@ -21,11 +21,23 @@ const generateKey = (url: string) => {
 /**
  * 轻量化 LRU 缓存中间件
  * @param ttlSeconds 过期时间（秒），如果不传则使用默认配置
+ * @param options.varyHeaders 参与缓存键计算的请求头（如 host），响应同样会带上 Vary
  */
-export const lruCacheMiddleware = (ttlSeconds?: number) => {
+export const lruCacheMiddleware = (ttlSeconds?: number, options: { varyHeaders?: string[] } = {}) => {
+  const varyHeaders = options.varyHeaders ?? [];
+
+  const buildKey = (c: any) => {
+    const vary = varyHeaders.map((name) => `${name}=${c.req.header(name) ?? ''}`).join('&');
+    return `cache:${generateKey(vary ? `${c.req.url}|${vary}` : c.req.url)}`;
+  };
+
   return async (c: any, next: any) => {
 
-    const key = `cache:${generateKey(c.req.url)}`;
+    if (varyHeaders.length > 0) {
+      c.header('Vary', varyHeaders.join(', '));
+    }
+
+    const key = buildKey(c);
 
     const cached = localCache.get(key);
     if (cached) {

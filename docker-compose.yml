@@ -9,6 +9,7 @@ services:
       - ALLOW_ORIGIN=https://example.com,https://yourdomain.com
       - MUSIC=open
       - AVATAR=open
+      - EMOJI=open
       # ===== 管理后台 /admin =====
       # 管理员密码（不设置则首次在本机/内网访问 /admin 时初始化）
       # - ADMIN_PASSWORD=your_password

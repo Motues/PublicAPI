@@ -1,6 +1,10 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'fs';
 import { join } from 'path';
 import { logger } from './logger.js';
+import { defaultEmojiData } from './defaultEmoji.js';
+import type { EmojiData, EmojiGroup, EmojiItem, EmojiType } from './defaultEmoji.js';
+
+export type { EmojiData, EmojiGroup, EmojiItem, EmojiType } from './defaultEmoji.js';
 
 const CACHE_DURATION = 5000; // 5秒缓存
 
@@ -50,6 +54,8 @@ export interface SiteConfig {
   siteName: string;
   description: string[];
   footer: string;
+  /** 表情接口对外访问地址（如 https://api.example.com），留空则按请求域名推导 */
+  emojiBaseUrl: string;
 }
 
 let siteConfigCache: SiteConfig | null = null;
@@ -58,7 +64,8 @@ let lastLoadTime_site: number = 0;
 const defaultConfig: SiteConfig = {
   siteName: 'Public API Server',
   description: ['A public API server for everyone.', 'Welcome to Public API Server'],
-  footer: '系统运行良好，欢迎使用！'
+  footer: '系统运行良好，欢迎使用！',
+  emojiBaseUrl: ''
 };
 
 export function loadSiteConfig(): SiteConfig {
@@ -90,7 +97,8 @@ export function loadSiteConfig(): SiteConfig {
     siteConfigCache = {
       siteName: config.siteName || defaultConfig.siteName,
       description: Array.isArray(config.description) ? config.description : defaultConfig.description,
-      footer: config.footer || defaultConfig.footer
+      footer: config.footer || defaultConfig.footer,
+      emojiBaseUrl: readEmojiBaseUrl(config.emojiBaseUrl)
     };
     lastLoadTime_site = now;
 
@@ -151,9 +159,57 @@ export function loadMetingSettings(): MetingConfig {
 }
 
 // ---------------------------------------------------------------------------
-// 配置写入（管理后台 /admin 使用，保存后立即刷新内存缓存，无需重启）
+// 表情数据（OwO 格式，供 /emoji/owo.json 与 Twikoo / Artalk 等前端使用）
 // ---------------------------------------------------------------------------
 
+let emojiDataCache: EmojiData | null = null;
+let lastLoadTime_emoji = 0;
+
+/**
+ * 读取表情数据（data/config/emoji.json）
+ *
+ * 文件不存在时写入内置默认数据；文件损坏时回退到默认数据并记录日志，
+ * 单个分组/表情项不合法时跳过该项，保证接口始终可用。
+ */
+export function loadEmojiData(): EmojiData {
+  const now = Date.now();
+
+  if (emojiDataCache && (now - lastLoadTime_emoji) < CACHE_DURATION) {
+    return emojiDataCache;
+  }
+
+  try {
+    const configDir = join(process.cwd(), 'data', 'config');
+    const configPath = join(configDir, 'emoji.json');
+
+    if (!existsSync(configDir)) {
+      mkdirSync(configDir, { recursive: true });
+    }
+
+    if (!existsSync(configPath)) {
+      writeFileSync(configPath, `${JSON.stringify(defaultEmojiData, null, 2)}\n`, 'utf-8');
+      logger.info('Created default emoji config file', 'Config');
+      emojiDataCache = defaultEmojiData;
+      lastLoadTime_emoji = now;
+      return defaultEmojiData;
+    }
+
+    const fileContent = readFileSync(configPath, 'utf-8');
+    const data = parseEmojiData(JSON.parse(fileContent), false);
+
+    emojiDataCache = data;
+    lastLoadTime_emoji = now;
+
+    return data;
+  } catch (error) {
+    logger.error('Failed to load emoji config:', error, 'Config');
+    return defaultEmojiData;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 配置写入（管理后台 /admin 使用，保存后立即刷新内存缓存，无需重启）
+// ---------------------------------------------------------------------------
 /** 配置校验失败（对应 HTTP 400），与文件读写错误区分开 */
 export class ConfigValidationError extends Error {
   constructor(message: string) {
@@ -167,10 +223,17 @@ const LIMITS = {
   descriptionItem: 200,
   descriptionCount: 50,
   footer: 300,
+  emojiBaseUrl: 500,
   serviceCount: 100,
   serviceName: 100,
   serviceUrl: 500,
   cookie: 8000,
+  emojiGroupCount: 50,
+  emojiGroupName: 50,
+  emojiItemCount: 1000, // 单个分组的表情数量
+  emojiTotalCount: 5000, // 全部分组的表情数量
+  emojiIcon: 2000,
+  emojiText: 200,
 } as const;
 
 /** 获取（必要时创建）配置目录 */
@@ -232,6 +295,54 @@ const assertSafeUrl = (url: string, field: string): void => {
 };
 
 /**
+ * 规范化表情接口对外访问地址
+ *
+ * 留空表示按请求域名自动推导；非空时必须是 http(s) 的站点根地址，
+ * 末尾的 / 会被去掉（接口拼接时统一使用 `/static/...`）。
+ */
+const normalizeEmojiBaseUrl = (value: unknown): string => {
+  if (typeof value !== 'string') {
+    throw new ConfigValidationError('emojiBaseUrl 必须是字符串');
+  }
+
+  const trimmed = value.trim().replace(/\/+$/, '');
+  if (trimmed === '') {
+    return '';
+  }
+  if (trimmed.length > LIMITS.emojiBaseUrl) {
+    throw new ConfigValidationError(`emojiBaseUrl 长度不能超过 ${LIMITS.emojiBaseUrl} 个字符`);
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      parsed.pathname === '/' &&
+      parsed.search === '' &&
+      parsed.hash === '' &&
+      parsed.username === '' &&
+      parsed.password === ''
+    ) {
+      return trimmed;
+    }
+  } catch {
+    // 交给下面统一抛错
+  }
+
+  throw new ConfigValidationError('emojiBaseUrl 必须是形如 https://api.example.com 的站点根地址（不能包含路径、查询参数或用户信息）');
+};
+
+/** 读取配置文件时的宽松解析：地址非法时按未配置处理并记录日志，保证服务可用 */
+const readEmojiBaseUrl = (value: unknown): string => {
+  try {
+    return normalizeEmojiBaseUrl(value ?? '');
+  } catch (error) {
+    logger.warn(`Invalid emojiBaseUrl in site config, treated as empty: ${(error as Error).message}`, 'Config');
+    return '';
+  }
+};
+
+/**
  * 保存站点配置（site.json），写入成功后立即刷新缓存
  * @param input 站点配置字段，未提供的字段保持原值
  */
@@ -239,6 +350,7 @@ export function saveSiteConfig(input: {
   siteName?: unknown;
   description?: unknown;
   footer?: unknown;
+  emojiBaseUrl?: unknown;
 }): SiteConfig {
   const current = loadSiteConfig();
 
@@ -268,7 +380,11 @@ export function saveSiteConfig(input: {
     ? current.footer
     : requireString(input.footer, 'footer', LIMITS.footer, true);
 
-  const next: SiteConfig = { siteName, description, footer };
+  const emojiBaseUrl = input.emojiBaseUrl === undefined
+    ? current.emojiBaseUrl
+    : normalizeEmojiBaseUrl(input.emojiBaseUrl);
+
+  const next: SiteConfig = { siteName, description, footer, emojiBaseUrl };
   writeJsonFile('site.json', next);
 
   siteConfigCache = next;
@@ -335,5 +451,128 @@ export function saveMetingSettings(input: { cookie?: unknown }): MetingConfig {
   lastLoadTime_meting = Date.now();
 
   logger.info('Meting config saved from admin panel', 'Config');
+  return next;
+}
+
+// ---------------------------------------------------------------------------
+// 表情数据：解析与校验
+// ---------------------------------------------------------------------------
+
+/** 图片表情必须是单个安全的 <img> 标签，避免把危险 HTML 输出到使用方页面 */
+const EMOJI_IMG_PATTERN = /^<img\s+src=["']([^"']+)["']\s*\/?>$/i;
+
+/** 校验图片表情的 icon 结构，文本表情不做限制 */
+const assertEmojiIcon = (icon: string, field: string, type: EmojiType): void => {
+  if (type !== 'image') {
+    return;
+  }
+
+  const matched = EMOJI_IMG_PATTERN.exec(icon);
+  if (!matched) {
+    throw new ConfigValidationError(`${field} 必须是形如 <img src="..."> 的图片标签`);
+  }
+
+  assertSafeUrl(matched[1], field);
+};
+
+/** 解析单个表情项 */
+const parseEmojiItem = (raw: unknown, field: string, type: EmojiType): EmojiItem => {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new ConfigValidationError(`${field} 必须是对象`);
+  }
+
+  const item = raw as Record<string, unknown>;
+  const icon = requireString(item.icon, `${field}.icon`, LIMITS.emojiIcon);
+  const text = item.text === undefined || item.text === null
+    ? ''
+    : requireString(item.text, `${field}.text`, LIMITS.emojiText, true);
+
+  assertEmojiIcon(icon, `${field}.icon`, type);
+
+  return { icon, text };
+};
+
+/** 解析单个表情分组 */
+const parseEmojiGroup = (raw: unknown, field: string): EmojiGroup => {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new ConfigValidationError(`${field} 必须是对象`);
+  }
+
+  const group = raw as Record<string, unknown>;
+  if (group.type !== 'emoticon' && group.type !== 'emoji' && group.type !== 'image') {
+    throw new ConfigValidationError(`${field}.type 只能是 emoticon、emoji 或 image`);
+  }
+  if (!Array.isArray(group.container)) {
+    throw new ConfigValidationError(`${field}.container 必须是数组`);
+  }
+  if (group.container.length > LIMITS.emojiItemCount) {
+    throw new ConfigValidationError(`${field}.container 最多 ${LIMITS.emojiItemCount} 项`);
+  }
+
+  const container = group.container.map((item, index) =>
+    parseEmojiItem(item, `${field}.container[${index}]`, group.type as EmojiType)
+  );
+
+  return { type: group.type as EmojiType, container };
+};
+
+/**
+ * 解析表情数据
+ * @param input 待解析数据，形如 { "分组名": { type, container } }
+ * @param strict 严格模式（保存时使用）遇到非法内容直接抛错；宽松模式（读取文件时使用）跳过非法分组
+ */
+const parseEmojiData = (input: unknown, strict: boolean): EmojiData => {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw new ConfigValidationError('表情数据必须是对象，形如 { "分组名": { "type": "emoji", "container": [] } }');
+  }
+
+  const entries = Object.entries(input as Record<string, unknown>);
+  if (entries.length > LIMITS.emojiGroupCount) {
+    throw new ConfigValidationError(`表情分组最多 ${LIMITS.emojiGroupCount} 组`);
+  }
+
+  const data: EmojiData = {};
+  let total = 0;
+
+  for (const [rawName, rawGroup] of entries) {
+    const name = rawName.trim();
+    const field = `emoji[${JSON.stringify(rawName)}]`;
+
+    try {
+      if (name === '' || name.length > LIMITS.emojiGroupName) {
+        throw new ConfigValidationError(`分组名不能为空且长度不能超过 ${LIMITS.emojiGroupName} 个字符`);
+      }
+
+      const group = parseEmojiGroup(rawGroup, field);
+      data[name] = group;
+      total += group.container.length;
+    } catch (error) {
+      if (strict) {
+        throw error;
+      }
+      logger.warn(`Skipped invalid emoji group ${field}: ${(error as Error).message}`, 'Config');
+    }
+  }
+
+  if (total > LIMITS.emojiTotalCount) {
+    throw new ConfigValidationError(`表情总数不能超过 ${LIMITS.emojiTotalCount} 个`);
+  }
+
+  return data;
+};
+
+/**
+ * 保存表情数据（emoji.json），写入成功后立即刷新缓存
+ * @param input OwO 格式表情数据，图片表情的 icon 需为安全的 <img> 标签
+ */
+export function saveEmojiData(input: unknown): EmojiData {
+  const next = parseEmojiData(input, true);
+
+  writeJsonFile('emoji.json', next);
+
+  emojiDataCache = next;
+  lastLoadTime_emoji = Date.now();
+
+  logger.info('Emoji config saved from admin panel', 'Config');
   return next;
 }

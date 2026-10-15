@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import { loadMetingSettings, loadServices, loadSiteConfig } from '../../utils/dataLoader.js';
+import { loadEmojiData, loadMetingSettings, loadServices, loadSiteConfig } from '../../utils/dataLoader.js';
 import { getStats } from '../../utils/middleware/counter.js';
 import {
   canUseSetupPage,
@@ -370,6 +370,86 @@ const PANEL_SCRIPT = `
     });
   }
 
+  // ---- 表情接口设置 ----
+  const baseUrlInput = document.getElementById('emoji-base-url');
+  if (baseUrlInput) {
+    baseUrlInput.value = (boot.site && boot.site.emojiBaseUrl) || '';
+
+    const saveBaseUrlButton = document.getElementById('save-emoji-base-url');
+    saveBaseUrlButton.addEventListener('click', async function () {
+      const msg = document.getElementById('emoji-base-url-msg');
+      saveBaseUrlButton.disabled = true;
+      setMsg(msg, '保存中…', null);
+      try {
+        const payload = await adminFetch('/config/site', {
+          method: 'PUT',
+          body: { emojiBaseUrl: baseUrlInput.value },
+        });
+        baseUrlInput.value = (payload && payload.data && payload.data.emojiBaseUrl) || '';
+        setMsg(msg, '[OK] 已保存，表情接口缓存已清理', true);
+      } catch (error) {
+        setMsg(msg, '[FAIL] ' + error.message, false);
+      }
+      saveBaseUrlButton.disabled = false;
+    });
+  }
+
+  // ---- 表情数据 ----
+  const emojiEditor = document.getElementById('emoji-editor');
+  if (emojiEditor) {
+    const emojiMsg = document.getElementById('emoji-msg');
+    emojiEditor.value = JSON.stringify(boot.emoji || {}, null, 2);
+
+    const formatEmojiButton = document.getElementById('format-emoji');
+    if (formatEmojiButton) {
+      formatEmojiButton.addEventListener('click', function () {
+        try {
+          emojiEditor.value = JSON.stringify(JSON.parse(emojiEditor.value), null, 2);
+          setMsg(emojiMsg, '[OK] 已格式化', true);
+        } catch (error) {
+          setMsg(emojiMsg, '[FAIL] JSON 格式错误：' + error.message, false);
+        }
+      });
+    }
+
+    const reloadEmojiButton = document.getElementById('reload-emoji');
+    if (reloadEmojiButton) {
+      reloadEmojiButton.addEventListener('click', async function () {
+        reloadEmojiButton.disabled = true;
+        setMsg(emojiMsg, '载入中…', null);
+        try {
+          const config = await adminFetch('/config');
+          emojiEditor.value = JSON.stringify((config && config.emoji) || {}, null, 2);
+          setMsg(emojiMsg, '[OK] 已重新载入服务端数据', true);
+        } catch (error) {
+          setMsg(emojiMsg, '[FAIL] ' + error.message, false);
+        }
+        reloadEmojiButton.disabled = false;
+      });
+    }
+
+    const saveEmojiButton = document.getElementById('save-emoji');
+    saveEmojiButton.addEventListener('click', async function () {
+      let parsed;
+      try {
+        parsed = JSON.parse(emojiEditor.value);
+      } catch (error) {
+        setMsg(emojiMsg, '[FAIL] JSON 格式错误：' + error.message, false);
+        return;
+      }
+
+      saveEmojiButton.disabled = true;
+      setMsg(emojiMsg, '保存中…', null);
+      try {
+        await adminFetch('/config/emoji', { method: 'PUT', body: { emoji: parsed } });
+        setMsg(emojiMsg, '[OK] 已保存，表情接口缓存已清理', true);
+      } catch (error) {
+        setMsg(emojiMsg, '[FAIL] ' + error.message, false);
+      }
+      saveEmojiButton.disabled = false;
+    });
+  }
+
   // ---- 修改密码 ----
   const passwordForm = document.getElementById('password-form');
   if (passwordForm) {
@@ -533,9 +613,10 @@ const setupBlockedView = (siteName: string): string => `
 `;
 
 interface PanelOptions {
-  site: { siteName: string; description: string[]; footer: string };
+  site: { siteName: string; description: string[]; footer: string; emojiBaseUrl: string };
   services: unknown;
   meting: unknown;
+  emoji: unknown;
   passwordSource: PasswordSource;
   passwordFromEnv: boolean;
   sessionTtlMinutes: number;
@@ -551,6 +632,7 @@ const panelView = (options: PanelOptions): string => {
     site,
     services: options.services,
     meting: options.meting,
+    emoji: options.emoji,
   }).replace(/</g, '\\u003c');
 
   const securityBody = passwordFromEnv
@@ -616,6 +698,7 @@ const panelView = (options: PanelOptions): string => {
     <button class="tab active" type="button" data-tab="site">[SITE] 站点信息</button>
     <button class="tab" type="button" data-tab="services">[LIST] 服务目录</button>
     <button class="tab" type="button" data-tab="meting">[MUSIC] 音乐设置</button>
+    <button class="tab" type="button" data-tab="emoji">[EMOJI] 表情数据</button>
     <button class="tab" type="button" data-tab="security">[SEC] 安全设置</button>
   </div>
 
@@ -677,6 +760,42 @@ const panelView = (options: PanelOptions): string => {
     </div>
   </div>
 
+  <div class="panel" data-panel="emoji">
+    <div class="box">
+      <div class="box-title">[EMOJI] 接口设置 · data/config/site.json</div>
+      <div class="field">
+        <label class="stats-label" for="emoji-base-url">对外访问地址（留空则按请求域名自动推导）</label>
+        <input id="emoji-base-url" type="text" maxlength="500" placeholder="https://api.example.com">
+      </div>
+      <div class="actions">
+        <button class="btn primary" type="button" id="save-emoji-base-url">保存并生效</button>
+        <span class="msg" id="emoji-base-url-msg"></span>
+      </div>
+      <div class="hint">
+        * 设置后图片表情一律使用该地址前缀（反向代理未传递 X-Forwarded-Proto 时建议显式配置）；<br>
+        留空时按 X-Forwarded-Proto / X-Forwarded-Host / 请求域名推导。
+      </div>
+    </div>
+    <div class="box">
+      <div class="box-title">[EMOJI] 表情数据 · data/config/emoji.json</div>
+      <div class="notice">
+        OwO 格式：{ "分组名": { "type": "emoticon | emoji | image", "container": [{ "icon": "...", "text": "..." }] } }，兼容 Twikoo / Artalk / Waline。<br>
+        图片表情的 icon 写成 &lt;img src="/static/emoji/&lt;分组目录&gt;/&lt;文件名&gt;"&gt;，接口返回时会按请求域名自动补全为绝对地址。
+      </div>
+      <div class="field">
+        <label class="stats-label" for="emoji-editor">表情数据（JSON）</label>
+        <textarea id="emoji-editor" rows="18" spellcheck="false"></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn" type="button" id="format-emoji">格式化</button>
+        <button class="btn" type="button" id="reload-emoji">重新载入</button>
+        <button class="btn primary" type="button" id="save-emoji">保存并生效</button>
+        <span class="msg" id="emoji-msg"></span>
+      </div>
+      <div class="hint">* 保存后会立即清理表情接口缓存；图片文件放在 public/emoji/ 下，通过 /static/emoji/... 访问，详见 /docs/emoji。</div>
+    </div>
+  </div>
+
   <div class="panel" data-panel="security">
     <div class="box">
       <div class="box-title">[SEC] 安全设置</div>
@@ -711,9 +830,11 @@ export const adminPage = async (c: Context) => {
         siteName: siteConfig.siteName,
         description: siteConfig.description,
         footer: siteConfig.footer,
+        emojiBaseUrl: siteConfig.emojiBaseUrl,
       },
       services: loadServices(),
       meting: loadMetingSettings(),
+      emoji: loadEmojiData(),
       passwordSource,
       passwordFromEnv: isPasswordFromEnv(),
       sessionTtlMinutes: getSessionTtlMinutes(),

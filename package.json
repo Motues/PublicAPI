@@ -1,11 +1,13 @@
 {
   "name": "public-api",
   "type": "module",
-  "version": "0.1.12",
+  "version": "0.2.0",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "emoji:sync": "node scripts/sync-emoji-assets.mjs --emit-ts --update-data",
+    "emoji:record": "node scripts/sync-emoji-assets.mjs --record-missing --emit-ts --update-data"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.12",

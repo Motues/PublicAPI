@@ -105,6 +105,10 @@ export const indexPage = async (c) => {
               <span>[/avatar] Avatar API</span>
               <span class="status-dot ${config.avatarOpen ? 'on' : 'off'}"></span>
             </a>
+            <a class="api-item" href="/docs/emoji">
+              <span>[/emoji] Emoji API</span>
+              <span class="status-dot ${config.emojiOpen ? 'on' : 'off'}"></span>
+            </a>
             ${serviceCards}
           </div>
           <div style="margin-top: 15px; font-size: 13px; color: #888;">

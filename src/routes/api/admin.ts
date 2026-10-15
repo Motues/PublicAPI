@@ -2,9 +2,11 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import {
   ConfigValidationError,
+  loadEmojiData,
   loadMetingSettings,
   loadServices,
   loadSiteConfig,
+  saveEmojiData,
   saveMetingSettings,
   saveServices,
   saveSiteConfig,
@@ -244,17 +246,29 @@ adminApi.get('/config', requireAdminAuth, (c) => {
     site: loadSiteConfig(),
     services: loadServices(),
     meting: loadMetingSettings(),
+    emoji: loadEmojiData(),
   });
 });
 
-/** 保存站点配置 */
+/** 保存站点配置（含表情接口对外地址，改动后清理表情接口缓存） */
 adminApi.put('/config/site', requireAdminAuth, async (c) => {
   const body = await readJsonBody(c);
-  return writeConfig(c, () => saveSiteConfig({
-    siteName: body.siteName,
-    description: body.description,
-    footer: body.footer,
-  }));
+  return writeConfig(c, () => {
+    const saved = saveSiteConfig({
+      siteName: body.siteName,
+      description: body.description,
+      footer: body.footer,
+      emojiBaseUrl: body.emojiBaseUrl,
+    });
+
+    // 表情接口对外地址决定返回的图片绝对地址，变更后需要让已缓存的响应失效
+    if (body.emojiBaseUrl !== undefined) {
+      const clearedResponses = clearResponseCache();
+      logger.info(`Emoji base URL updated, cleared ${clearedResponses} responses`, 'Admin');
+    }
+
+    return saved;
+  });
 });
 
 /** 保存服务目录 */
@@ -271,6 +285,17 @@ adminApi.put('/config/meting', requireAdminAuth, async (c) => {
     const clearedResponses = clearResponseCache();
     const clearedSongs = clearMusicInfoCache();
     logger.info(`Meting config updated, cleared ${clearedResponses} responses / ${clearedSongs} song details`, 'Admin');
+    return saved;
+  });
+});
+
+/** 保存表情数据（OwO 格式，保存后清理表情接口缓存） */
+adminApi.put('/config/emoji', requireAdminAuth, async (c) => {
+  const body = await readJsonBody(c);
+  return writeConfig(c, () => {
+    const saved = saveEmojiData(body.emoji);
+    const clearedResponses = clearResponseCache();
+    logger.info(`Emoji config updated, cleared ${clearedResponses} responses`, 'Admin');
     return saved;
   });
 });
