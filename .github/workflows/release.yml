@@ -14,6 +14,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # 需要完整历史与标签对象，发布正文取自标签注释
+          fetch-depth: 0
 
       - name: Create Zip Archive
         run: |
@@ -23,6 +26,9 @@ jobs:
       - name: Read release notes from tag
         id: notes
         run: |
+          # checkout 有时只把标签解析成指向提交的轻量标签，此时 %(contents) 得到的是提交信息，
+          # 先补拉一次标签对象，确保读到的确实是标签注释
+          git fetch --force --tags origin
           notes="$(git tag -l --format='%(contents)' "${GITHUB_REF_NAME}")"
           if [ -z "${notes}" ]; then
             notes="Release of version ${GITHUB_REF_NAME}"
