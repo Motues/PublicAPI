@@ -3,14 +3,14 @@ name: Release
 on:
   push:
     tags:
-      - 'v*' 
+      - 'v*'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write 
-    
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,11 +19,25 @@ jobs:
         run: |
           zip -r release.zip . -x "*.git*" ".github/*"
 
+      # 用带注释标签的说明作为发布正文，标签未写说明时回退到默认文案
+      - name: Read release notes from tag
+        id: notes
+        run: |
+          notes="$(git tag -l --format='%(contents)' "${GITHUB_REF_NAME}")"
+          if [ -z "${notes}" ]; then
+            notes="Release of version ${GITHUB_REF_NAME}"
+          fi
+          {
+            echo "body<<RELEASE_NOTES_EOF"
+            echo "${notes}"
+            echo "RELEASE_NOTES_EOF"
+          } >> "${GITHUB_OUTPUT}"
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: release.zip
-          body: "Release of version ${{ github.ref_name }}"
+          body: ${{ steps.notes.outputs.body }}
           draft: false
           prerelease: false
         env:

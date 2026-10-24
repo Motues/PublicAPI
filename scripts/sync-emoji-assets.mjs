@@ -4,7 +4,7 @@
  * 三个数据来源：
  *   1. OwO 数据（默认 https://owo.imaegoo.com/owo.json）：颜文字 / Emoji（Bilibili 小电视分组已排除）
  *   2. scripts/emoji-extra.json：额外的文本表情（按分组补充，默认追加到 Emoji 组）
- *   3. Waline 表情包（官方 @waline/emojis 与社区 fork @ljxme/walineqaq，均带 info.json 清单）
+ *   3. Waline 表情包（官方 @waline/emojis、社区 fork @ljxme/walineqaq、小红书贴纸包 red-sticker，均带 info.json 清单）
  *
  * 表情包通过 npm registry 的 tarball 一次性取回（快且不易被 CDN 限流），
  * 图片落盘到 public/emoji/ 后随仓库发布，运行时由 /static/emoji/... 静态托管，不再访问上游。
@@ -44,6 +44,7 @@ const EXCLUDE_OWO_GROUPS = new Set(['Bilibili']);
 const PACK_SOURCES = {
   waline: 'https://registry.npmjs.org/@waline/emojis/-/emojis-1.4.0.tgz',
   walineqaq: 'https://registry.npmjs.org/@ljxme/walineqaq/-/walineqaq-1.1.3.tgz',
+  redsticker: 'https://registry.npmjs.org/red-sticker/-/red-sticker-2024.9.5.tgz',
 };
 
 /**
@@ -51,11 +52,13 @@ const PACK_SOURCES = {
  * - group：输出到接口的分组名
  * - slug：public/emoji/<slug>/ 目录名，也是 /static/emoji/<slug>/ 的访问路径
  * - hashNames：图片按内容 SHA-1 命名（true 时不再使用上游文件名）
+ * - textPrefix：展示用表情名需要去掉的上游前缀（如小红书包的「小红书-」）
  */
 const WALINE_PACKS = [
   { source: 'waline', pack: 'bilibili', group: 'Bilibili', slug: 'bilibili', hashNames: true },
   { source: 'waline', pack: 'qq', group: 'QQ', slug: 'qq', hashNames: true },
   { source: 'walineqaq', pack: 'heybox_cube', group: '小黑盒', slug: 'heybox', hashNames: true },
+  { source: 'redsticker', pack: 'sticker', group: '小红书', slug: 'xiaohongshu', hashNames: true, textPrefix: '小红书-' },
 ];
 
 const OUTPUT_ROOT = path.join(process.cwd(), 'public', 'emoji');
@@ -144,7 +147,7 @@ const recordMissing = async (groupName, dir, inventory) => {
   }
 
   const present = new Set(onDisk);
-  const list = (exclusion.data[groupName] ||= []);
+  const list = exclusion.data[groupName] || [];
   let added = 0;
 
   for (const { text, fileName } of inventory) {
@@ -154,7 +157,9 @@ const recordMissing = async (groupName, dir, inventory) => {
     added++;
   }
 
+  // 只有确实记录了删除项才把该分组写进排除清单，避免留下空数组
   if (added > 0) {
+    exclusion.data[groupName] = list;
     list.sort();
     exclusion.dirty = true;
   }
@@ -265,6 +270,16 @@ const tsString = (value) => {
   return JSON.stringify(text);
 };
 
+/** 按文件头判断图片真实格式（上游偶有扩展名与实际格式不一致的图，如 webp 存成 .png） */
+const detectImageExt = (data) => {
+  if (!data || data.length < 12) return null;
+  if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47) return 'png';
+  if (data[0] === 0x47 && data[1] === 0x49 && data[2] === 0x46) return 'gif';
+  if (data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return 'jpg';
+  if (data.subarray(0, 4).toString('latin1') === 'RIFF' && data.subarray(8, 12).toString('latin1') === 'WEBP') return 'webp';
+  return null;
+};
+
 /** 从表情包 tarball 中落盘一个分组，返回分组数据 */
 const syncPack = async (config) => {
   const entries = await loadTarball(config.source);
@@ -281,18 +296,22 @@ const syncPack = async (config) => {
 
   const extension = `.${info.type || 'png'}`;
 
-  /** 每项表情：来源文件名、包内数据、最终落盘文件名（配置 hashNames 时按内容 SHA-1） */
+  /** 每项表情：来源文件名、包内数据、最终落盘文件名（配置 hashNames 时按内容 SHA-1）、展示名 */
   const inventory = (info.items || []).map((item) => {
     const text = String(item).trim();
     const sourceName = `${info.prefix || ''}${text}${extension}`;
     const data = entries.get(`${prefixPath}${sourceName}`);
+    // 文件名按内容哈希时，扩展名改用真实图片格式，避免 content-type 与内容不符
+    const fileExt = detectImageExt(data);
 
     return {
-      text,
+      text: config.textPrefix && text.startsWith(config.textPrefix)
+        ? text.slice(config.textPrefix.length)
+        : text,
       sourceName,
       data,
       fileName: data && config.hashNames
-        ? `${createHash('sha1').update(data).digest('hex')}${extension}`
+        ? `${createHash('sha1').update(data).digest('hex')}${fileExt ? `.${fileExt}` : extension}`
         : sourceName,
     };
   });

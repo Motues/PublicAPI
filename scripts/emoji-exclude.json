@@ -40,8 +40,8 @@
     "frog",
     "ghost",
     "gift",
-    "hold_fist",
     "hocho",
+    "hold_fist",
     "hongbao",
     "karaoke",
     "knife",
@@ -84,6 +84,16 @@
     "white_sunglasses",
     "white_thumbsup",
     "xi"
+  ],
+  "小红书": [
+    "优惠券",
+    "同款",
+    "开箱",
+    "打卡",
+    "探店",
+    "请友好",
+    "请文明",
+    "购物车"
   ],
   "小黑盒": [
     "2023",

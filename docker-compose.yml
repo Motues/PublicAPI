@@ -1,6 +1,9 @@
 services:
   public-api:
-    image: ghcr.io/motues/publicapi:latest  
+    # GitHub 容器镜像仓库（官方）
+    image: ghcr.io/motues/publicapi:latest
+    # Docker Hub 官方镜像仓库（备选，把 <用户名> 换成自己的 Docker Hub 账号）：
+    # image: <用户名>/publicapi:latest
     container_name: public-api-server
     restart: always
     ports:

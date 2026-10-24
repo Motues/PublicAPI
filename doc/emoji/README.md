@@ -12,7 +12,7 @@ OwO 格式的表情数据接口，兼容 [Twikoo](https://github.com/imaegoo/twi
 
 请求示例：[/emoji/owo.json](/emoji/owo.json)、[/emoji/owo.json?group=Emoji](/emoji/owo.json?group=Emoji)
 
-当前内置分组：`颜文字`、`Emoji`、`Bilibili`、`QQ`、`小黑盒`。
+当前内置分组：`颜文字`、`Emoji`、`Bilibili`、`QQ`、`小黑盒`、`小红书`。
 
 ## 返回格式
 

@@ -25,6 +25,23 @@ wget https://raw.githubusercontent.com/Motues/PublicAPI/main/docker-compose.yml
 docker compose up -d
 ```
 
+镜像同时发布到两个官方镜像仓库，内容一致，按网络情况选择即可：
+
+| 镜像仓库 | 镜像地址 |
+| --- | --- |
+| GitHub 容器镜像仓库（GHCR） | `ghcr.io/motues/publicapi` |
+| Docker Hub | `motues/publicapi` |
+
+支持的标签：`latest`（最新版本）、`0.2.1`（完整版本号）、`0.2`（次版本号，随补丁更新）。
+
+```bash
+# 直接拉取运行（以 Docker Hub 为例）
+docker run -d --name public-api -p 3000:3000 \
+  -e EMOJI=open \
+  -v $(pwd)/data:/app/data \
+  motues/publicapi:latest
+```
+
 ### Node.js
 
 ```bash
