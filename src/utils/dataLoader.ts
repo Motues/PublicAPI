@@ -166,10 +166,30 @@ let emojiDataCache: EmojiData | null = null;
 let lastLoadTime_emoji = 0;
 
 /**
+ * 把内置默认数据里存在、但配置文件里缺失的分组补进去
+ *
+ * 升级镜像后内置表情包可能新增分组（如「小红书」），而 data/config/emoji.json 一旦生成就以它为准，
+ * 这里在读取时补齐缺失分组，账号里的自定义调整不受影响。
+ * 想彻底隐藏某个分组时，把它留在配置里并把 container 置空即可（空分组不会被当成缺失）。
+ * @returns 本次补进来的分组名
+ */
+const mergeMissingEmojiGroups = (data: EmojiData): string[] => {
+  const added: string[] = [];
+
+  for (const [name, group] of Object.entries(defaultEmojiData)) {
+    if (data[name]) continue;
+    data[name] = group;
+    added.push(name);
+  }
+
+  return added;
+};
+
+/**
  * 读取表情数据（data/config/emoji.json）
  *
- * 文件不存在时写入内置默认数据；文件损坏时回退到默认数据并记录日志，
- * 单个分组/表情项不合法时跳过该项，保证接口始终可用。
+ * 文件不存在时写入内置默认数据；文件存在于旧版本时自动补齐新增分组；
+ * 文件损坏时回退到默认数据并记录日志，单个分组/表情项不合法时跳过该项，保证接口始终可用。
  */
 export function loadEmojiData(): EmojiData {
   const now = Date.now();
@@ -196,6 +216,21 @@ export function loadEmojiData(): EmojiData {
 
     const fileContent = readFileSync(configPath, 'utf-8');
     const data = parseEmojiData(JSON.parse(fileContent), false);
+
+    // 旧版本留下的配置文件不含新内置分组时，读取后自动补齐并写回
+    const added = mergeMissingEmojiGroups(data);
+    if (added.length > 0) {
+      try {
+        writeJsonFile('emoji.json', data);
+        logger.info(`Merged new emoji groups from built-in data: ${added.join(', ')}`, 'Config');
+      } catch (writeError) {
+        // 配置目录只读时仍然返回补齐后的数据，只是不落盘
+        logger.warn(
+          `Merged new emoji groups in memory only (write failed): ${(writeError as Error).message}`,
+          'Config'
+        );
+      }
+    }
 
     emojiDataCache = data;
     lastLoadTime_emoji = now;

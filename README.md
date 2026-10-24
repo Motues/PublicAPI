@@ -78,7 +78,7 @@ pnpm start
 - `data/config/site.json`：站点名称、首页打字机描述、页脚文案、表情接口对外访问地址
 - `data/config/services.json`：首页服务目录的增删改
 - `data/config/meting.json`：网易云 Cookie（保存后自动清理音乐相关缓存）
-- `data/config/emoji.json`：OwO 表情数据（保存后自动清理表情接口缓存）
+- `data/config/emoji.json`：OwO 表情数据（保存后自动清理表情接口缓存；升级后新版本内置的分组会自动补齐到该文件，详见 [/docs/emoji](/docs/emoji)）
 
 ## 配置文件
 
