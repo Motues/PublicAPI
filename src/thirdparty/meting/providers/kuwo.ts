@@ -4,6 +4,34 @@ import type { ApiConfig, MetingLike, SearchOption } from './base.js';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 /**
+ * songinfo 短缓存
+ * 酷我 songinfo 节点不稳定，一次成功请求可能要重试 2~3 次；
+ * 详情/封面/歌词都会用到它，这里做进程级短缓存以降低对上游的请求量。
+ */
+const SONGINFO_TTL = 10 * 60 * 1000;
+const SONGINFO_MAX = 500;
+const songinfoCache = new Map<string, { raw: string; exp: number }>();
+
+function getSonginfoCache(id: string): string | null {
+  const entry = songinfoCache.get(id);
+  if (!entry) return null;
+  if (Date.now() > entry.exp) {
+    songinfoCache.delete(id);
+    return null;
+  }
+  return entry.raw;
+}
+
+function setSonginfoCache(id: string, raw: string): void {
+  if (!id || !raw) return;
+  if (songinfoCache.size >= SONGINFO_MAX) {
+    const oldest = songinfoCache.keys().next().value;
+    if (oldest !== undefined) songinfoCache.delete(oldest);
+  }
+  songinfoCache.set(id, { raw, exp: Date.now() + SONGINFO_TTL });
+}
+
+/**
  * 酷我 songinfo 接口需要首页下发的 Hm_Iuvt_* 反爬 Cookie，
  * 这里做进程级缓存，避免每个请求都去拉一次首页
  */
@@ -192,13 +220,20 @@ export default class KuwoProvider extends BaseProvider {
 
     let result = await run();
 
-    if (api.url.includes('/newh5/singles/songinfoandlrc')) {
+    const isSonginfo = api.url.includes('/newh5/singles/songinfoandlrc');
+    const musicId = String((api.body as any)?.musicId || '');
+
+    if (isSonginfo) {
       // m.kuwo.cn 与 www.kuwo.cn 由不同节点服务，失败时轮换重试
       let target = this.alternateSonginfoHost(api.url);
       for (let attempt = 0; attempt < 3 && this.songinfoFailed(meting.raw); attempt++) {
         await new Promise(resolve => setTimeout(resolve, 200));
         result = await run(target);
         target = this.alternateSonginfoHost(target);
+      }
+
+      if (!this.songinfoFailed(meting.raw)) {
+        setSonginfoCache(musicId, meting.raw as string);
       }
     }
 
@@ -217,12 +252,17 @@ export default class KuwoProvider extends BaseProvider {
 
   /**
    * 判断 songinfo 响应是否为瞬时失败
+   * 某些节点只返回 lrclist 而没有 songinfo，或 songinfo 缺少歌名，需要重试
    */
   songinfoFailed(raw: string | null): boolean {
     if (!raw) return true;
-    if (/"data"\s*:\s*null/.test(raw)) return true;
-    // 某些后端节点会返回缺少歌名的不完整数据
-    return /"songName"\s*:\s*""/.test(raw);
+    try {
+      const data = JSON.parse(raw);
+      const info = data?.data?.songinfo;
+      return !info || !info.songName;
+    } catch (e) {
+      return true;
+    }
   }
 
   /**
@@ -365,9 +405,23 @@ export default class KuwoProvider extends BaseProvider {
    */
   async pic(id: string, size: number = 300): Promise<string> {
     try {
-      const format = this.meting.isFormat;
-      const raw = await this.meting.format(false).song(this.normalizeId(id));
-      this.meting.isFormat = format;
+      const key = this.normalizeId(id);
+      let raw = getSonginfoCache(key);
+
+      if (!raw) {
+        const format = this.meting.isFormat;
+        raw = await this.meting.format(false).song(key);
+        this.meting.isFormat = format;
+
+        if (raw && !this.songinfoFailed(raw)) {
+          setSonginfoCache(key, raw);
+        }
+      }
+
+      if (!raw) {
+        return JSON.stringify({ url: '' });
+      }
+
       const data = JSON.parse(raw);
       const songinfo = data?.data?.songinfo;
       let url = String(songinfo?.pic || songinfo?.albumpic || '');
