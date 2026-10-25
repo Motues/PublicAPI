@@ -27,20 +27,22 @@ export default class TencentProvider extends BaseProvider {
 
   /**
    * 搜索歌曲
+   *
+   * 注意：旧接口 client_search_cp 已下线（HTTP 500），
+   * 这里改用同域名下仍在服务的 search_for_qq_cp，
+   * 该接口只返回老版字段（songmid/songname/albummid/albumname），
+   * 因此 format() 需要同时兼容新旧两种字段格式。
    */
   search(keyword: string, option: SearchOption = {}): ApiConfig {
     return {
       method: 'GET',
-      url: 'https://c.y.qq.com/soso/fcgi-bin/client_search_cp',
+      url: 'https://c.y.qq.com/soso/fcgi-bin/search_for_qq_cp',
       body: {
         format: 'json',
         p: option.page || 1,
         n: option.limit || 30,
-        w: keyword,
-        aggr: 1,
-        lossless: 1,
-        cr: 1,
-        new_json: 1
+        w: keyword
+        // 不要传 aggr=1：老接口下会导致分页/条数（p、n）失效
       },
       format: 'data.song.list'
     };
@@ -81,37 +83,81 @@ export default class TencentProvider extends BaseProvider {
 
   /**
    * 获取艺术家作品
+   *
+   * 旧的 fcg_v8_singer_track_cp.fcg 接口已返回 404，
+   * 改用 musicu.fcg 的 GetSingerSongList 模块（需要 comm 段）
    */
   artist(id: string, limit: number = 50): ApiConfig {
+    const payload = {
+      req_0: {
+        module: 'musichall.song_list_server',
+        method: 'GetSingerSongList',
+        param: {
+          singerMid: id,
+          order: 1,
+          begin: 0,
+          num: limit
+        }
+      },
+      comm: {
+        uin: '0',
+        format: 'json',
+        ct: 24,
+        cv: 0
+      }
+    };
+
     return {
       method: 'GET',
-      url: 'https://c.y.qq.com/v8/fcg-bin/fcg_v8_singer_track_cp.fcg',
+      url: 'https://u.y.qq.com/cgi-bin/musicu.fcg',
       body: {
-        singermid: id,
-        begin: 0,
-        num: limit,
-        order: 'listen',
-        platform: 'mac',
-        newsong: 1
+        format: 'json',
+        platform: 'yqq.json',
+        needNewCode: 0,
+        data: JSON.stringify(payload)
       },
-      format: 'data.list'
+      format: 'req_0.data.songList'
     };
   }
 
   /**
    * 获取播放列表
+   *
+   * 旧的 fcg_v8_playlist_cp.fcg 走 c.y.qq.com，经常超时；
+   * 改用 u.y.qq.com 的 CgiGetDiss（需要 comm 段）
    */
   playlist(id: string): ApiConfig {
+    const payload = {
+      req_0: {
+        module: 'music.srfDissInfo.DissInfo',
+        method: 'CgiGetDiss',
+        param: {
+          disstid: /^\d+$/.test(id) ? Number(id) : id,
+          dirid: 0,
+          tag: 1,
+          song_begin: 0,
+          song_num: 1000,
+          userinfo: 1
+        }
+      },
+      comm: {
+        uin: '0',
+        format: 'json',
+        ct: 24,
+        cv: 0
+      }
+    };
+
     return {
       method: 'GET',
-      url: 'https://c.y.qq.com/v8/fcg-bin/fcg_v8_playlist_cp.fcg',
+      url: 'https://u.y.qq.com/cgi-bin/musicu.fcg',
       body: {
-        id: id,
         format: 'json',
-        newsong: 1,
-        platform: 'jqspaframe.json'
+        platform: 'yqq.json',
+        needNewCode: 0,
+        data: JSON.stringify(payload)
       },
-      format: 'data.cdlist.0.songlist'
+      format: 'req_0.data.songlist'
     };
   }
 
@@ -150,30 +196,45 @@ export default class TencentProvider extends BaseProvider {
    * 获取封面图片
    */
   async pic(id: string, size: number = 300): Promise<string> {
+    if (!id) {
+      return JSON.stringify({ url: '' });
+    }
     const url = `https://y.gtimg.cn/music/photo_new/T002R${size}x${size}M000${id}.jpg?max_age=2592000`;
     return JSON.stringify({ url: url });
   }
 
   /**
    * 格式化腾讯音乐数据
+   * 兼容：
+   * - 新版字段（mid / name / album.title / singer）
+   * - 旧版字段（songmid / songname / albummid / albumname）
+   * - 歌手作品接口返回的 songInfo 包装层
    */
   format(data: any): any {
-    if (data.musicData) {
+    if (data && data.musicData) {
       data = data.musicData;
     }
+    if (data && data.songInfo) {
+      data = data.songInfo;
+    }
+
+    const mid = data.songmid || data.mid;
+    const album = data.album && data.album.title !== undefined
+      ? data.album.title
+      : (data.albumname || '');
 
     const result: any = {
-      id: data.mid,
-      name: data.name,
+      id: mid,
+      name: data.songname || data.name,
       artist: [],
-      album: data.album.title.trim(),
-      pic_id: data.album.mid,
-      url_id: data.mid,
-      lyric_id: data.mid,
+      album: String(album || '').trim(),
+      pic_id: (data.album && data.album.mid) || data.albummid,
+      url_id: mid,
+      lyric_id: mid,
       source: 'tencent'
     };
 
-    data.singer.forEach((singer: any) => {
+    (data.singer || []).forEach((singer: any) => {
       result.artist.push(singer.name);
     });
 
@@ -197,6 +258,13 @@ export default class TencentProvider extends BaseProvider {
    */
   async urlDecode(result: string): Promise<string> {
     const data = JSON.parse(result);
+    const song = data && data.data && data.data[0];
+
+    // 歌曲信息缺失（下架/请求失败）时直接返回空链接
+    if (!song || !song.file) {
+      return JSON.stringify({ url: '', size: 0, br: -1 });
+    }
+
     const guid = Math.floor(Math.random() * 10000000000);
 
     const qualityMap: [string, number, string, string][] = [
@@ -228,13 +296,20 @@ export default class TencentProvider extends BaseProvider {
           loginflag: 1,
           platform: '20'
         }
+      },
+      // 缺少 comm 时接口会返回 104009 invalidq，且拿不到 vkey
+      comm: {
+        uin: uin,
+        format: 'json',
+        ct: 24,
+        cv: 0
       }
     };
 
     qualityMap.forEach(([sizeKey, br, prefix, ext]) => {
-      payload.req_0.param.songmid.push(data.data[0].mid);
-      payload.req_0.param.filename.push(`${prefix}${data.data[0].file.media_mid}.${ext}`);
-      payload.req_0.param.songtype.push(data.data[0].type);
+      payload.req_0.param.songmid.push(song.mid);
+      payload.req_0.param.filename.push(`${prefix}${song.file.media_mid}.${ext}`);
+      payload.req_0.param.songtype.push(song.type);
     });
 
     const api: ApiConfig = {
@@ -249,16 +324,17 @@ export default class TencentProvider extends BaseProvider {
     };
 
     const response = JSON.parse(await this.meting._exec(api));
-    const vkeys = response.req_0.data.midurlinfo;
+    const vkeys = response?.req_0?.data?.midurlinfo || [];
+    const sip = response?.req_0?.data?.sip || [];
 
     let url: any;
     for (let i = 0; i < qualityMap.length; i++) {
-      const [sizeKey, br, prefix, ext] = qualityMap[i];
-      if (data.data[0].file[sizeKey] && br <= this.meting.temp.br) {
-        if (vkeys[i].vkey) {
+      const [sizeKey, br] = qualityMap[i];
+      if (song.file[sizeKey] && br <= this.meting.temp.br) {
+        if (vkeys[i] && vkeys[i].vkey && sip.length) {
           url = {
-            url: response.req_0.data.sip[0] + vkeys[i].purl,
-            size: data.data[0].file[sizeKey],
+            url: sip[0] + vkeys[i].purl,
+            size: song.file[sizeKey],
             br: br
           };
           break;
@@ -316,14 +392,16 @@ export default class TencentProvider extends BaseProvider {
    * 腾讯音乐歌词解码
    */
   async lyricDecode(result: string): Promise<string> {
-    const jsonStr = result.substring(18, result.length - 1);
-    const data = JSON.parse(jsonStr);
+    try {
+      const jsonStr = result.substring(18, result.length - 1);
+      const data = JSON.parse(jsonStr);
 
-    const lyricData = {
-      lyric: data.lyric ? this.decodeHtmlEntities(Buffer.from(data.lyric, 'base64').toString()) : '',
-      tlyric: data.trans ? this.decodeHtmlEntities(Buffer.from(data.trans, 'base64').toString()) : ''
-    };
-
-    return JSON.stringify(lyricData);
+      return JSON.stringify({
+        lyric: data.lyric ? this.decodeHtmlEntities(Buffer.from(data.lyric, 'base64').toString()) : '',
+        tlyric: data.trans ? this.decodeHtmlEntities(Buffer.from(data.trans, 'base64').toString()) : ''
+      });
+    } catch (e) {
+      return JSON.stringify({ lyric: '', tlyric: '' });
+    }
   }
 }

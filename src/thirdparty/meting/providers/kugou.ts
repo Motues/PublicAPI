@@ -195,13 +195,15 @@ export default class KugouProvider extends BaseProvider {
    * 获取封面图片
    */
   async pic(id: string, size: number = 300): Promise<string> {
+    if (!id) {
+      return JSON.stringify({ url: '' });
+    }
     const format = this.meting.isFormat;
     const data = await this.meting.format(false).song(id);
     this.meting.isFormat = format;
     const songData = JSON.parse(data);
-    let url = songData.imgUrl;
-    url = url.replace('{size}', '400');
-    return JSON.stringify({ url: url });
+    const imgUrl = songData?.imgUrl || '';
+    return JSON.stringify({ url: imgUrl.replace('{size}', '400') });
   }
 
   /**

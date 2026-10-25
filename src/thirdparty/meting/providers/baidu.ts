@@ -3,6 +3,17 @@ import BaseProvider from './base.js';
 import type { ApiConfig, SearchOption } from './base.js';
 
 /**
+ * 千千音乐（原百度音乐）开放接口常量
+ *
+ * 旧接口 musicapi.taihe.com 已下线，/v1/restserver/ting 也已 404，
+ * 现改用千千音乐 Web 客户端使用的 api-qianqian.91q.com REST 接口，
+ * 所有请求都需要 appid + timestamp + sign 签名。
+ */
+const QIANQIAN_BASE = 'https://api-qianqian.91q.com';
+const QIANQIAN_APPID = '16073360';
+const QIANQIAN_SECRET = '0b50b02fd0d73a9c4c8c3a781c30845f';
+
+/**
  * 百度音乐平台提供者
  */
 export default class BaiduProvider extends BaseProvider {
@@ -16,11 +27,9 @@ export default class BaiduProvider extends BaseProvider {
    */
   getHeaders(): Record<string, string> {
     return {
-      'Cookie': `BAIDUID=${this._getRandomHex(32)}:FG=1`,
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) baidu-music/1.2.1 Chrome/66.0.3359.181 Electron/3.0.5 Safari/537.36',
-      'Accept': '*/*',
-      'Content-Type': 'application/json;charset=UTF-8',
-      'Accept-Language': 'zh-CN'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Referer': 'https://music.91q.com/'
     };
   }
 
@@ -30,18 +39,15 @@ export default class BaiduProvider extends BaseProvider {
   search(keyword: string, option: SearchOption = {}): ApiConfig {
     return {
       method: 'GET',
-      url: 'http://musicapi.taihe.com/v1/restserver/ting',
+      url: `${QIANQIAN_BASE}/v1/search`,
       body: {
-        from: 'qianqianmini',
-        method: 'baidu.ting.search.merge',
-        isNew: 1,
-        platform: 'darwin',
-        page_no: option.page || 1,
-        query: keyword,
-        version: '11.2.1',
-        page_size: option.limit || 30
+        word: keyword,
+        type: option.type || 1,
+        pageNo: option.page || 1,
+        pageSize: option.limit || 30
       },
-      format: 'result.song_info.song_list'
+      encode: 'baidu_sign',
+      format: 'data.typeTrack'
     };
   }
 
@@ -51,17 +57,10 @@ export default class BaiduProvider extends BaseProvider {
   song(id: string): ApiConfig {
     return {
       method: 'GET',
-      url: 'http://musicapi.taihe.com/v1/restserver/ting',
-      body: {
-        from: 'qianqianmini',
-        method: 'baidu.ting.song.getInfos',
-        songid: id,
-        res: 1,
-        platform: 'darwin',
-        version: '1.0.0'
-      },
-      encode: 'baidu_AESCBC',
-      format: 'songinfo'
+      url: `${QIANQIAN_BASE}/v1/song/info`,
+      body: { TSID: id },
+      encode: 'baidu_sign',
+      format: 'data'
     };
   }
 
@@ -71,15 +70,10 @@ export default class BaiduProvider extends BaseProvider {
   album(id: string): ApiConfig {
     return {
       method: 'GET',
-      url: 'http://musicapi.taihe.com/v1/restserver/ting',
-      body: {
-        from: 'qianqianmini',
-        method: 'baidu.ting.album.getAlbumInfo',
-        album_id: id,
-        platform: 'darwin',
-        version: '11.2.1'
-      },
-      format: 'songlist'
+      url: `${QIANQIAN_BASE}/v1/album/info`,
+      body: { albumAssetCode: id },
+      encode: 'baidu_sign',
+      format: 'data.trackList'
     };
   }
 
@@ -89,18 +83,14 @@ export default class BaiduProvider extends BaseProvider {
   artist(id: string, limit: number = 50): ApiConfig {
     return {
       method: 'GET',
-      url: 'http://musicapi.taihe.com/v1/restserver/ting',
+      url: `${QIANQIAN_BASE}/v1/artist/songs`,
       body: {
-        from: 'qianqianmini',
-        method: 'baidu.ting.artist.getSongList',
-        artistid: id,
-        limits: limit,
-        platform: 'darwin',
-        offset: 0,
-        tinguid: 0,
-        version: '11.2.1'
+        artistCode: id,
+        pageNo: 1,
+        pageSize: limit
       },
-      format: 'songlist'
+      encode: 'baidu_sign',
+      format: 'data.result'
     };
   }
 
@@ -110,52 +100,44 @@ export default class BaiduProvider extends BaseProvider {
   playlist(id: string): ApiConfig {
     return {
       method: 'GET',
-      url: 'http://musicapi.taihe.com/v1/restserver/ting',
+      url: `${QIANQIAN_BASE}/v1/tracklist/info`,
       body: {
-        from: 'qianqianmini',
-        method: 'baidu.ting.diy.gedanInfo',
-        listid: id,
-        platform: 'darwin',
-        version: '11.2.1'
+        id: id,
+        pageNo: 1,
+        pageSize: 1000
       },
-      format: 'content'
+      encode: 'baidu_sign',
+      format: 'data.trackList'
     };
   }
 
   /**
    * 获取音频播放链接
+   * rate 取值 64 / 128 / 320 / 3000
    */
   url(id: string, br: number = 320): ApiConfig {
     return {
       method: 'GET',
-      url: 'http://musicapi.taihe.com/v1/restserver/ting',
+      url: `${QIANQIAN_BASE}/v1/song/tracklink`,
       body: {
-        from: 'qianqianmini',
-        method: 'baidu.ting.song.getInfos',
-        songid: id,
-        res: 1,
-        platform: 'darwin',
-        version: '1.0.0'
+        TSID: id,
+        rate: this.pickRate(br)
       },
-      encode: 'baidu_AESCBC',
+      encode: 'baidu_sign',
       decode: 'baidu_url'
     };
   }
 
   /**
    * 获取歌词
+   * 千千音乐的歌词是 song/info 里返回的一个 .lrc 地址
    */
   lyric(id: string): ApiConfig {
     return {
       method: 'GET',
-      url: 'http://musicapi.taihe.com/v1/restserver/ting',
-      body: {
-        from: 'qianqianmini',
-        method: 'baidu.ting.song.lry',
-        songid: id,
-        platform: 'darwin',
-        version: '1.0.0'
-      },
+      url: `${QIANQIAN_BASE}/v1/song/info`,
+      body: { TSID: id },
+      encode: 'baidu_sign',
       decode: 'baidu_lyric'
     };
   }
@@ -164,119 +146,141 @@ export default class BaiduProvider extends BaseProvider {
    * 获取封面图片
    */
   async pic(id: string, size: number = 300): Promise<string> {
-    const format = this.meting.isFormat;
-    const data = await this.meting.format(false).song(id);
-    this.meting.isFormat = format;
-    const songData = JSON.parse(data);
-    const url = songData.songinfo.pic_radio || songData.songinfo.pic_small;
-    return JSON.stringify({ url: url });
+    try {
+      const format = this.meting.isFormat;
+      const raw = await this.meting.format(false).song(id);
+      this.meting.isFormat = format;
+      const data = JSON.parse(raw);
+      const track = Array.isArray(data?.data) ? data.data[0] : data?.data;
+      return JSON.stringify({ url: track?.pic || '' });
+    } catch (e) {
+      return JSON.stringify({ url: '' });
+    }
   }
 
   /**
-   * 格式化百度音乐数据
+   * 格式化千千音乐数据
    */
   format(data: any): any {
+    if (!data || typeof data !== 'object') {
+      return { id: '', name: '', artist: [], album: '', pic_id: '', url_id: '', lyric_id: '', source: 'baidu' };
+    }
+
+    // 专辑 trackList 里的曲目用 assetId 而不是 TSID
+    const id = data.TSID || data.assetId || data.id || '';
+
     return {
-      id: data.song_id,
-      name: data.title,
-      artist: data.author ? data.author.split(',') : [],
-      album: data.album_title || '',
-      pic_id: data.song_id,
-      url_id: data.song_id,
-      lyric_id: data.song_id,
+      id: id,
+      name: data.title || data.name || '',
+      artist: Array.isArray(data.artist) ? data.artist.map((a: any) => a.name) : [],
+      album: data.albumTitle || '',
+      pic_id: id,
+      url_id: id,
+      lyric_id: id,
       source: 'baidu'
     };
   }
 
   /**
-   * 处理百度音乐的编码/解码逻辑
+   * 处理编码逻辑（签名）
    */
   async handleEncode(api: ApiConfig): Promise<ApiConfig> {
-    if (api.encode === 'baidu_AESCBC') {
-      return this.aesEncrypt(api);
+    if (api.encode === 'baidu_sign') {
+      return this.signRequest(api);
     }
     return api;
   }
 
+  /**
+   * 千千音乐请求签名
+   * sign = md5(按 key 排序后的 "k=v" 用 & 拼接 + secret)
+   * 参与签名的参数 = 业务参数 + appid + timestamp
+   */
+  signRequest(api: ApiConfig): ApiConfig {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const params: Record<string, any> = {
+      ...(api.body as Record<string, any>),
+      appid: QIANQIAN_APPID,
+      timestamp: timestamp
+    };
+
+    const raw = Object.keys(params)
+      .sort()
+      .map(key => `${key}=${params[key]}`)
+      .join('&');
+
+    params.sign = crypto.createHash('md5').update(`${raw}${QIANQIAN_SECRET}`).digest('hex');
+    api.body = params;
+
+    return api;
+  }
+
+  /**
+   * 处理解码逻辑
+   */
   async handleDecode(decodeType: string, data: string): Promise<string> {
     if (decodeType === 'baidu_url') {
       return this.urlDecode(data);
     } else if (decodeType === 'baidu_lyric') {
-      return this.lyricDecode(data);
+      return await this.lyricDecode(data);
     }
     return data;
   }
 
   /**
-   * 百度音乐 AES 加密
-   */
-  async aesEncrypt(api: ApiConfig): Promise<ApiConfig> {
-    const key = 'DBEECF8C50FD160E';
-    const vi = '1231021386755796';
-
-    const body = api.body as Record<string, any>;
-    const data = `songid=${body.songid}&ts=${Date.now()}`;
-
-    const cipher = crypto.createCipheriv('aes-128-cbc', key, vi);
-    cipher.setAutoPadding(true);
-    let encrypted = cipher.update(data, 'utf8', 'base64');
-    encrypted += cipher.final('base64');
-
-    body.e = encrypted;
-
-    return api;
-  }
-
-  /**
-   * 百度音乐 URL 解码
+   * 千千音乐 URL 解码
    */
   async urlDecode(result: string): Promise<string> {
-    const data = JSON.parse(result);
-
-    let maxBr = 0;
-    let url: any;
-
-    data.songurl.url.forEach((item: any) => {
-      if (item.file_bitrate <= this.meting.temp.br && item.file_bitrate > maxBr) {
-        maxBr = item.file_bitrate;
-        url = {
-          url: item.file_link,
-          br: item.file_bitrate
-        };
+    try {
+      const json = JSON.parse(result);
+      const data = json?.data;
+      if (data && data.path) {
+        return JSON.stringify({
+          url: data.path,
+          size: data.size || 0,
+          br: data.rate || -1
+        });
       }
-    });
-
-    if (!url) {
-      url = {
-        url: '',
-        br: -1
-      };
+    } catch (e) {
+      // ignore
     }
 
-    return JSON.stringify(url);
+    return JSON.stringify({ url: '', size: 0, br: -1 });
   }
 
   /**
-   * 百度音乐歌词解码
+   * 千千音乐歌词解码：取 song/info 返回的 lyric 地址再下载 LRC
    */
   async lyricDecode(result: string): Promise<string> {
-    const data = JSON.parse(result);
-    const lyricData = {
-      lyric: data.lrcContent || '',
-      tlyric: ''
-    };
+    let lyricUrl = '';
+    try {
+      const json = JSON.parse(result);
+      const track = Array.isArray(json?.data) ? json.data[0] : json?.data;
+      lyricUrl = track?.lyric || '';
+    } catch (e) {
+      lyricUrl = '';
+    }
 
-    return JSON.stringify(lyricData);
+    if (!lyricUrl) {
+      return JSON.stringify({ lyric: '', tlyric: '' });
+    }
+
+    const lyric = await this.meting._exec({
+      method: 'GET',
+      url: lyricUrl,
+      body: null
+    });
+
+    return JSON.stringify({ lyric: lyric || '', tlyric: '' });
   }
 
-  // ========== 私有工具方法 ==========
-
   /**
-   * 生成随机十六进制字符串
+   * 码率映射：千千音乐只接受 64 / 128 / 320 / 3000
    */
-  _getRandomHex(length: number): string {
-    return crypto.randomBytes(Math.ceil(length / 2))
-      .toString('hex')
-      .slice(0, length);
+  pickRate(br: number): number {
+    if (br >= 999) return 3000;
+    if (br >= 320) return 320;
+    if (br >= 128) return 128;
+    return 64;
   }
 }

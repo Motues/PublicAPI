@@ -211,6 +211,9 @@ export default class NeteaseProvider extends BaseProvider {
    * 获取封面图片
    */
   async pic(id: string, size: number = 300): Promise<string> {
+    if (!id) {
+      return JSON.stringify({ url: '' });
+    }
     const url = `https://p3.music.126.net/${this._encryptId(id)}/${id}.jpg?param=${size}y${size}`;
     return JSON.stringify({ url: url });
   }
@@ -219,6 +222,10 @@ export default class NeteaseProvider extends BaseProvider {
    * 格式化网易云音乐数据
    */
   format(data: any): any {
+    if (!data || !data.al) {
+      return { id: '', name: '', artist: [], album: '', pic_id: '', url_id: '', lyric_id: '', source: 'netease' };
+    }
+
     const result: any = {
       id: data.id,
       name: data.name,
@@ -288,27 +295,25 @@ export default class NeteaseProvider extends BaseProvider {
    */
   async urlDecode(result: string): Promise<string> {
     const data = JSON.parse(result);
-    let url: any;
+    const track = data && Array.isArray(data.data) ? data.data[0] : null;
 
-    if (data.data[0].uf && data.data[0].uf.url) {
-      data.data[0].url = data.data[0].uf.url;
+    if (!track) {
+      return JSON.stringify({ url: '', size: 0, br: -1 });
     }
 
-    if (data.data[0].url) {
-      url = {
-        url: data.data[0].url,
-        size: data.data[0].size,
-        br: data.data[0].br / 1000
-      };
-    } else {
-      url = {
-        url: '',
-        size: 0,
-        br: -1
-      };
+    if (track.uf && track.uf.url) {
+      track.url = track.uf.url;
     }
 
-    return JSON.stringify(url);
+    if (track.url) {
+      return JSON.stringify({
+        url: track.url,
+        size: track.size,
+        br: track.br / 1000
+      });
+    }
+
+    return JSON.stringify({ url: '', size: 0, br: -1 });
   }
 
   /**

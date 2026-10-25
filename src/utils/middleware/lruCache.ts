@@ -22,9 +22,14 @@ const generateKey = (url: string) => {
  * 轻量化 LRU 缓存中间件
  * @param ttlSeconds 过期时间（秒），如果不传则使用默认配置
  * @param options.varyHeaders 参与缓存键计算的请求头（如 host），响应同样会带上 Vary
+ * @param options.skipWhen 返回 true 时跳过缓存（例如上游瞬时失败返回的空数组）
  */
-export const lruCacheMiddleware = (ttlSeconds?: number, options: { varyHeaders?: string[] } = {}) => {
+export const lruCacheMiddleware = (
+  ttlSeconds?: number,
+  options: { varyHeaders?: string[]; skipWhen?: (data: any) => boolean } = {}
+) => {
   const varyHeaders = options.varyHeaders ?? [];
+  const skipWhen = options.skipWhen;
 
   const buildKey = (c: any) => {
     const vary = varyHeaders.map((name) => `${name}=${c.req.header(name) ?? ''}`).join('&');
@@ -71,7 +76,7 @@ export const lruCacheMiddleware = (ttlSeconds?: number, options: { varyHeaders?:
           dataToCache = await c.res.clone().text();
         }
 
-        if (dataToCache) {
+        if (dataToCache && !(skipWhen && skipWhen(dataToCache))) {
           localCache.set(key, dataToCache, {
             ttl: ttlSeconds ? ttlSeconds * 1000 : undefined
           });

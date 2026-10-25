@@ -21,7 +21,7 @@ class Meting {
   header: Record<string, string>;
 
   constructor(server: string = 'netease') {
-    this.VERSION = '__VERSION__'; // 在构建时由 rollup 替换为实际版本号
+    this.VERSION = '1.6.2'; // 对齐上游 @meting/core 版本
     this.raw = null;
     this.info = null;
     this.error = null;
@@ -83,15 +83,15 @@ class Meting {
       requestOptions.body = payload as BodyInit;
     }
 
-    // 添加超时控制
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-    requestOptions.signal = controller.signal;
-
+    // 超时控制：每次尝试都重新创建 AbortController，
+    // 否则超时后重试会直接命中已 abort 的 signal（旧实现的重试实际无效）
     let retries = 3;
     const makeRequest = async (): Promise<this> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
       try {
-        const response = await fetch(url, requestOptions as RequestInit);
+        const response = await fetch(url, { ...requestOptions, signal: controller.signal } as RequestInit);
 
         clearTimeout(timeoutId);
 

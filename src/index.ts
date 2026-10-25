@@ -48,7 +48,10 @@ if(config.emojiOpen) app.use('/emoji/*', async (c, next) => {
 });
 
 //  LRU 接口缓存
-if(config.musicOpen) app.use('/music/*', lruCacheMiddleware(60 * 30)); // 音乐接口缓存30分钟
+// 音乐接口：上游偶尔超时返回空数组，这类失败结果不缓存，避免 30 分钟内一直命中空数据
+if(config.musicOpen) app.use('/music/*', lruCacheMiddleware(60 * 30, {
+  skipWhen: (data: any) => Array.isArray(data) && data.length === 0
+})); // 音乐接口缓存30分钟
 if(config.avatarOpen) app.use('/avatar/*', lruCacheMiddleware(60 * 10)); // 头像接口缓存10分钟
 // 表情数据按请求域名生成图片绝对地址，缓存键需要带上 host，避免多域名之间串数据
 if(config.emojiOpen) app.use('/emoji/*', lruCacheMiddleware(60 * 30, { varyHeaders: ['host', 'x-forwarded-host', 'x-forwarded-proto'] }));

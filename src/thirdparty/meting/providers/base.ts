@@ -233,6 +233,21 @@ export default class BaseProvider {
   }
 
   /**
+   * 解析响应数据
+   * 默认按标准 JSON 解析，个别平台（如酷我）返回的是类 JSON 文本，
+   * 可覆盖此方法实现宽松解析
+   * @param {string} raw 原始响应文本
+   * @returns {any} 解析后的数据，解析失败返回 null
+   */
+  parseJson(raw: string): any {
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
    * 数据清理方法
    * @param {string} raw 原始数据
    * @param {string} rule 提取规则
@@ -240,32 +255,32 @@ export default class BaseProvider {
    * @returns {string} 清理后的数据
    */
   cleanData(raw: string, rule: string | undefined, meting: MetingLike): string {
-    let data: any;
-    try {
-      data = JSON.parse(raw);
-    } catch (e) {
+    const data = this.parseJson(raw);
+
+    if (data === null || data === undefined) {
       return JSON.stringify([]);
     }
 
+    let picked: any = data;
     if (rule) {
-      data = this.pickupData(data, rule);
+      picked = this.pickupData(data, rule);
+    }
+    let list: any = picked;
+    if (!Array.isArray(list) && typeof list === 'object' && list !== null) {
+      list = [list];
     }
 
-    if (!Array.isArray(data) && typeof data === 'object' && data !== null) {
-      data = [data];
-    }
-
-    if (!Array.isArray(data)) {
+    if (!Array.isArray(list)) {
       return JSON.stringify([]);
     }
 
     // 使用当前 provider 的格式化方法
     if (typeof this.format === 'function') {
-      const result = data.map(item => this.format(item));
+      const result = list.map(item => this.format(item));
       return JSON.stringify(result);
     }
 
-    return JSON.stringify(data);
+    return JSON.stringify(list);
   }
 
   /**
