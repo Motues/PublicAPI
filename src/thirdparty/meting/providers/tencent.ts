@@ -1,10 +1,40 @@
 import BaseProvider from './base.js';
-import type { ApiConfig, SearchOption } from './base.js';
+import type { ApiConfig, MetingLike, SearchOption } from './base.js';
+
+/**
+ * QQ 音乐统一网关（u.y.qq.com / musicu.fcg）
+ *
+ * 2026-10 起逐步把腾讯平台的接口从 c.y.qq.com 的 fcg 接口迁移到统一网关：
+ * 搜索、歌曲详情、专辑、歌手、歌单、歌词、播放地址全部走 musicu。
+ */
+const MUSICU_URL = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
+
+/**
+ * musicu 的公共参数
+ * 注意：ct 不能是 24，搜索结果会为空；ct=19（或 11）才能拿到数据
+ */
+const MUSICU_COMM = {
+  uin: '0',
+  format: 'json',
+  ct: 19,
+  cv: 1859
+};
+
+/**
+ * musicu 搜索被风控（code 2001）后的冷却截止时间，
+ * 期间直接使用旧搜索接口，避免每次请求都先撞一次风控
+ */
+let musicuSearchBlockedUntil = 0;
 
 /**
  * 腾讯音乐平台提供者
  */
 export default class TencentProvider extends BaseProvider {
+  /**
+   * 最近一次搜索参数，用于 musicu 搜索被风控时回退到旧接口
+   */
+  private lastSearch: { keyword: string; option: SearchOption } | null = null;
+
   constructor(meting: any) {
     super(meting);
     this.name = 'tencent';
@@ -15,9 +45,9 @@ export default class TencentProvider extends BaseProvider {
    */
   getHeaders(): Record<string, string> {
     return {
-      'Referer': 'http://y.qq.com',
+      'Referer': 'https://y.qq.com/',
       'Cookie': 'pgv_pvi=22038528; pgv_si=s3156287488; pgv_pvid=5535248600; yplayer_open=1; ts_last=y.qq.com/portal/player.html; ts_uid=4847550686; yq_index=0; qqmusic_fromtag=66; player_exist=1',
-      'User-Agent': 'QQ%E9%9F%B3%E4%B9%90/54409 CFNetwork/901.1 Darwin/17.6.0 (x86_64)',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept': '*/*',
       'Accept-Language': 'zh-CN,zh;q=0.8,gl;q=0.6,zh-TW;q=0.4',
       'Connection': 'keep-alive',
@@ -26,14 +56,58 @@ export default class TencentProvider extends BaseProvider {
   }
 
   /**
+   * 构造一个 musicu.fcg 请求
+   * @param req0 req_0 段（module / method / param）
+   * @param extra 额外的 ApiConfig 字段（format / decode）
+   */
+  musicu(req0: Record<string, any>, extra: Partial<ApiConfig> = {}): ApiConfig {
+    return {
+      method: 'GET',
+      url: MUSICU_URL,
+      body: {
+        format: 'json',
+        platform: 'yqq.json',
+        needNewCode: 0,
+        data: JSON.stringify({
+          req_0: req0,
+          comm: MUSICU_COMM
+        })
+      },
+      ...extra
+    };
+  }
+
+  /**
    * 搜索歌曲
-   *
-   * 注意：旧接口 client_search_cp 已下线（HTTP 500），
-   * 这里改用同域名下仍在服务的 search_for_qq_cp，
-   * 该接口只返回老版字段（songmid/songname/albummid/albumname），
-   * 因此 format() 需要同时兼容新旧两种字段格式。
+   * 优先走 musicu；若被风控（req_0.code=2001，返回空列表）则回退到 c.y.qq.com
    */
   search(keyword: string, option: SearchOption = {}): ApiConfig {
+    this.lastSearch = { keyword, option };
+
+    // musicu 搜索被风控期间，直接走旧接口，避免每次多一次无效请求
+    if (Date.now() < musicuSearchBlockedUntil) {
+      return this.legacySearch(keyword, option);
+    }
+
+    return this.musicu(
+      {
+        module: 'music.search.SearchCgiService',
+        method: 'DoSearchForQQMusicDesktop',
+        param: {
+          query: keyword,
+          page_num: option.page || 1,
+          num_per_page: option.limit || 30,
+          search_type: 0
+        }
+      },
+      { format: 'req_0.data.body.song.list' }
+    );
+  }
+
+  /**
+   * 旧版搜索接口（musicu 搜索被风控时的兜底）
+   */
+  legacySearch(keyword: string, option: SearchOption = {}): ApiConfig {
     return {
       method: 'GET',
       url: 'https://c.y.qq.com/soso/fcgi-bin/search_for_qq_cp',
@@ -42,93 +116,77 @@ export default class TencentProvider extends BaseProvider {
         p: option.page || 1,
         n: option.limit || 30,
         w: keyword
-        // 不要传 aggr=1：老接口下会导致分页/条数（p、n）失效
       },
       format: 'data.song.list'
     };
   }
 
   /**
+   * 执行请求：musicu 搜索返回空结果时回退到旧搜索接口
+   */
+  async executeRequest(api: ApiConfig, meting: MetingLike): Promise<string> {
+    const result = await super.executeRequest(api, meting);
+
+    if (api.format === 'req_0.data.body.song.list' && result === '[]' && this.lastSearch) {
+      // req_0.code = 2001：搜索接口风控，10 分钟内直接走旧接口
+      if (meting.raw && /"code"\s*:\s*2001/.test(meting.raw)) {
+        musicuSearchBlockedUntil = Date.now() + 10 * 60 * 1000;
+      }
+
+      return super.executeRequest(this.legacySearch(this.lastSearch.keyword, this.lastSearch.option), meting);
+    }
+
+    return result;
+  }
+
+  /**
    * 获取歌曲详情
    */
   song(id: string): ApiConfig {
-    return {
-      method: 'GET',
-      url: 'https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg',
-      body: {
-        songmid: id,
-        platform: 'yqq',
-        format: 'json'
+    return this.musicu(
+      {
+        module: 'music.pf_song_detail_svr',
+        method: 'get_song_detail',
+        param: { song_mid: id }
       },
-      format: 'data'
-    };
+      { format: 'req_0.data.track_info' }
+    );
   }
 
   /**
    * 获取专辑信息
    */
   album(id: string): ApiConfig {
-    return {
-      method: 'GET',
-      url: 'https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_detail_cp.fcg',
-      body: {
-        albummid: id,
-        platform: 'mac',
-        format: 'json',
-        newsong: 1
+    return this.musicu(
+      {
+        module: 'music.musichallAlbum.AlbumSongList',
+        method: 'GetAlbumSongList',
+        param: { albumMid: id, begin: 0, num: 1000 }
       },
-      format: 'data.getSongInfo'
-    };
+      { format: 'req_0.data.songList' }
+    );
   }
 
   /**
    * 获取艺术家作品
-   *
-   * 旧的 fcg_v8_singer_track_cp.fcg 接口已返回 404，
-   * 改用 musicu.fcg 的 GetSingerSongList 模块（需要 comm 段）
    */
   artist(id: string, limit: number = 50): ApiConfig {
-    const payload = {
-      req_0: {
+    return this.musicu(
+      {
         module: 'musichall.song_list_server',
         method: 'GetSingerSongList',
-        param: {
-          singerMid: id,
-          order: 1,
-          begin: 0,
-          num: limit
-        }
+        param: { singerMid: id, order: 1, begin: 0, num: limit }
       },
-      comm: {
-        uin: '0',
-        format: 'json',
-        ct: 24,
-        cv: 0
-      }
-    };
-
-    return {
-      method: 'GET',
-      url: 'https://u.y.qq.com/cgi-bin/musicu.fcg',
-      body: {
-        format: 'json',
-        platform: 'yqq.json',
-        needNewCode: 0,
-        data: JSON.stringify(payload)
-      },
-      format: 'req_0.data.songList'
-    };
+      { format: 'req_0.data.songList' }
+    );
   }
 
   /**
    * 获取播放列表
-   *
-   * 旧的 fcg_v8_playlist_cp.fcg 走 c.y.qq.com，经常超时；
-   * 改用 u.y.qq.com 的 CgiGetDiss（需要 comm 段）
    */
   playlist(id: string): ApiConfig {
-    const payload = {
-      req_0: {
+    return this.musicu(
+      {
         module: 'music.srfDissInfo.DissInfo',
         method: 'CgiGetDiss',
         param: {
@@ -140,56 +198,37 @@ export default class TencentProvider extends BaseProvider {
           userinfo: 1
         }
       },
-      comm: {
-        uin: '0',
-        format: 'json',
-        ct: 24,
-        cv: 0
-      }
-    };
-
-    return {
-      method: 'GET',
-      url: 'https://u.y.qq.com/cgi-bin/musicu.fcg',
-      body: {
-        format: 'json',
-        platform: 'yqq.json',
-        needNewCode: 0,
-        data: JSON.stringify(payload)
-      },
-      format: 'req_0.data.songlist'
-    };
+      { format: 'req_0.data.songlist' }
+    );
   }
 
   /**
    * 获取音频播放链接
+   * 先取歌曲详情，再在 urlDecode 里请求 vkey
    */
   url(id: string, br: number = 320): ApiConfig {
-    return {
-      method: 'GET',
-      url: 'https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg',
-      body: {
-        songmid: id,
-        platform: 'yqq',
-        format: 'json'
+    return this.musicu(
+      {
+        module: 'music.pf_song_detail_svr',
+        method: 'get_song_detail',
+        param: { song_mid: id }
       },
-      decode: 'tencent_url'
-    };
+      { decode: 'tencent_url' }
+    );
   }
 
   /**
    * 获取歌词
    */
   lyric(id: string): ApiConfig {
-    return {
-      method: 'GET',
-      url: 'https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg',
-      body: {
-        songmid: id,
-        g_tk: '5381'
+    return this.musicu(
+      {
+        module: 'music.musichallSong.PlayLyricInfo',
+        method: 'GetPlayLyricInfo',
+        param: { songMID: id, songID: 0 }
       },
-      decode: 'tencent_lyric'
-    };
+      { decode: 'tencent_lyric' }
+    );
   }
 
   /**
@@ -205,16 +244,18 @@ export default class TencentProvider extends BaseProvider {
 
   /**
    * 格式化腾讯音乐数据
-   * 兼容：
-   * - 新版字段（mid / name / album.title / singer）
-   * - 旧版字段（songmid / songname / albummid / albumname）
-   * - 歌手作品接口返回的 songInfo 包装层
+   * musicu 返回的 track_info / songInfo 使用新版字段（mid / name / album.title），
+   * 这里同时兼容旧版字段（songmid / songname / albummid / albumname）
    */
   format(data: any): any {
-    if (data && data.musicData) {
+    if (!data || typeof data !== 'object') {
+      return { id: '', name: '', artist: [], album: '', pic_id: '', url_id: '', lyric_id: '', source: 'tencent' };
+    }
+
+    if (data.musicData) {
       data = data.musicData;
     }
-    if (data && data.songInfo) {
+    if (data.songInfo) {
       data = data.songInfo;
     }
 
@@ -257,8 +298,10 @@ export default class TencentProvider extends BaseProvider {
    * 腾讯音乐 URL 解码
    */
   async urlDecode(result: string): Promise<string> {
-    const data = JSON.parse(result);
-    const song = data && data.data && data.data[0];
+    const payload = JSON.parse(result);
+    const song = payload?.req_0?.data?.track_info
+      || payload?.track_info
+      || (payload?.data && payload.data[0]);
 
     // 歌曲信息缺失（下架/请求失败）时直接返回空链接
     if (!song || !song.file) {
@@ -283,7 +326,7 @@ export default class TencentProvider extends BaseProvider {
       uin = uinMatch[1];
     }
 
-    const payload: any = {
+    const payloadVkey: any = {
       req_0: {
         module: 'vkey.GetVkeyServer',
         method: 'CgiGetVkey',
@@ -297,29 +340,26 @@ export default class TencentProvider extends BaseProvider {
           platform: '20'
         }
       },
-      // 缺少 comm 时接口会返回 104009 invalidq，且拿不到 vkey
       comm: {
-        uin: uin,
-        format: 'json',
-        ct: 24,
-        cv: 0
+        ...MUSICU_COMM,
+        uin: uin
       }
     };
 
     qualityMap.forEach(([sizeKey, br, prefix, ext]) => {
-      payload.req_0.param.songmid.push(song.mid);
-      payload.req_0.param.filename.push(`${prefix}${song.file.media_mid}.${ext}`);
-      payload.req_0.param.songtype.push(song.type);
+      payloadVkey.req_0.param.songmid.push(song.mid);
+      payloadVkey.req_0.param.filename.push(`${prefix}${song.file.media_mid}.${ext}`);
+      payloadVkey.req_0.param.songtype.push(song.type);
     });
 
     const api: ApiConfig = {
       method: 'GET',
-      url: 'https://u.y.qq.com/cgi-bin/musicu.fcg',
+      url: MUSICU_URL,
       body: {
         format: 'json',
         platform: 'yqq.json',
         needNewCode: 0,
-        data: JSON.stringify(payload)
+        data: JSON.stringify(payloadVkey)
       }
     };
 
@@ -354,7 +394,7 @@ export default class TencentProvider extends BaseProvider {
   }
 
   /**
-   * 解码HTML实体编码
+   * 解码 HTML 实体编码
    */
   decodeHtmlEntities(text: string): string {
     if (!text) return text;
@@ -390,15 +430,31 @@ export default class TencentProvider extends BaseProvider {
 
   /**
    * 腾讯音乐歌词解码
+   * musicu 的 GetPlayLyricInfo 返回 base64 编码的 LRC（lyric / trans），
+   * 同时兼容旧 fcg 接口的 MusicJsonCallback 包装
    */
   async lyricDecode(result: string): Promise<string> {
     try {
-      const jsonStr = result.substring(18, result.length - 1);
-      const data = JSON.parse(jsonStr);
+      let raw = (result || '').trim();
+      if (raw.startsWith('MusicJsonCallback')) {
+        raw = raw.substring(18, raw.length - 1);
+      }
+
+      const payload = JSON.parse(raw);
+      const data = payload?.req_0?.data || payload?.data || payload;
+
+      const decode = (value: string): string => {
+        if (!value) return '';
+        // 新版返回 base64，旧版可能已经是明文
+        const decoded = /^[A-Za-z0-9+/=\s]+$/.test(value)
+          ? Buffer.from(value, 'base64').toString('utf8')
+          : value;
+        return this.decodeHtmlEntities(decoded);
+      };
 
       return JSON.stringify({
-        lyric: data.lyric ? this.decodeHtmlEntities(Buffer.from(data.lyric, 'base64').toString()) : '',
-        tlyric: data.trans ? this.decodeHtmlEntities(Buffer.from(data.trans, 'base64').toString()) : ''
+        lyric: decode(data?.lyric),
+        tlyric: decode(data?.trans)
       });
     } catch (e) {
       return JSON.stringify({ lyric: '', tlyric: '' });
