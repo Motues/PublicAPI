@@ -2,12 +2,15 @@ import BaseProvider from './base.js';
 import type { ApiConfig, MetingLike, SearchOption } from './base.js';
 
 /**
- * QQ 音乐统一网关（u.y.qq.com / musicu.fcg）
+ * QQ 音乐统一网关（u 系列 / musicu.fcg）
  *
- * 2026-10 起逐步把腾讯平台的接口从 c.y.qq.com 的 fcg 接口迁移到统一网关：
  * 搜索、歌曲详情、专辑、歌手、歌单、歌词、播放地址全部走 musicu。
+ *
+ * 注意：u.y.qq.com 的搜索接口会返回风控错误 `code=2001`，
+ * 而同一网关的 u6.y.qq.com 正常，因此默认使用 u6，失败时再换 u 重试。
  */
-const MUSICU_URL = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
+const MUSICU_HOSTS = ['u6.y.qq.com', 'u.y.qq.com'];
+const MUSICU_URL = `https://${MUSICU_HOSTS[0]}/cgi-bin/musicu.fcg`;
 
 /**
  * musicu 的公共参数
@@ -79,7 +82,8 @@ export default class TencentProvider extends BaseProvider {
 
   /**
    * 搜索歌曲
-   * 优先走 musicu；若被风控（req_0.code=2001，返回空列表）则回退到 c.y.qq.com
+   * 默认走 u6.y.qq.com（u.y.qq.com 的搜索目前会返回风控 2001），
+   * 两个 u 网关都失败时回退到 c.y.qq.com
    */
   search(keyword: string, option: SearchOption = {}): ApiConfig {
     this.lastSearch = { keyword, option };
@@ -122,14 +126,57 @@ export default class TencentProvider extends BaseProvider {
   }
 
   /**
-   * 执行请求：musicu 搜索返回空结果时回退到旧搜索接口
+   * 换一个 musicu 网关域名
+   */
+  withHost(api: ApiConfig, host: string): ApiConfig {
+    return {
+      ...api,
+      url: api.url.replace(/^https?:\/\/[^/]+/, `https://${host}`)
+    };
+  }
+
+  /**
+   * 当前请求的备用网关域名（u6 -> u，u -> u6）
+   */
+  alternateHost(url: string): string {
+    const current = (url.match(/^https?:\/\/([^/]+)/) || [])[1];
+    return current === MUSICU_HOSTS[0] ? MUSICU_HOSTS[1] : MUSICU_HOSTS[0];
+  }
+
+  /**
+   * musicu 请求是否失败（网络错误或风控 2001）
+   */
+  musicuBlocked(raw: string | null): boolean {
+    if (!raw) return true;
+    return /"code"\s*:\s*2001/.test(raw);
+  }
+
+  /**
+   * 执行一次请求（复制 ApiConfig，避免重试时 URL 被重复拼接参数）
+   */
+  runRequest(api: ApiConfig, meting: MetingLike): Promise<string> {
+    const body = api.body && typeof api.body === 'object' ? { ...(api.body as Record<string, any>) } : api.body;
+    return super.executeRequest({ ...api, body }, meting);
+  }
+
+  /**
+   * 执行请求：
+   * 1. musicu 失败（网络错误 / 风控 2001）时换 u 域名重试一次
+   * 2. 搜索仍为空时回退到 c.y.qq.com，并冷却 10 分钟
    */
   async executeRequest(api: ApiConfig, meting: MetingLike): Promise<string> {
-    const result = await super.executeRequest(api, meting);
+    const isSearch = api.format === 'req_0.data.body.song.list';
+    const isMusicu = api.url.includes('/cgi-bin/musicu.fcg');
 
-    if (api.format === 'req_0.data.body.song.list' && result === '[]' && this.lastSearch) {
-      // req_0.code = 2001：搜索接口风控，10 分钟内直接走旧接口
-      if (meting.raw && /"code"\s*:\s*2001/.test(meting.raw)) {
+    let result = await this.runRequest(api, meting);
+
+    if (isMusicu && this.musicuBlocked(meting.raw)) {
+      result = await this.runRequest(this.withHost(api, this.alternateHost(api.url)), meting);
+    }
+
+    if (isSearch && result === '[]' && this.lastSearch) {
+      // 两个 u 网关都被风控时，10 分钟内直接走旧接口
+      if (this.musicuBlocked(meting.raw)) {
         musicuSearchBlockedUntil = Date.now() + 10 * 60 * 1000;
       }
 
