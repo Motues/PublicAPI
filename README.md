@@ -32,7 +32,7 @@ docker compose up -d
 | GitHub 容器镜像仓库（GHCR） | `ghcr.io/motues/publicapi` |
 | Docker Hub | `motues/publicapi` |
 
-支持的标签：`latest`（最新版本）、`0.2.1`（完整版本号）、`0.2`（次版本号，随补丁更新）。
+支持的标签：`latest`（最新版本）、`0.2.3`（完整版本号）、`0.2`（次版本号，随补丁更新）。
 
 ```bash
 # 直接拉取运行（以 Docker Hub 为例）
