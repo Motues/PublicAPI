@@ -6,7 +6,7 @@
 
 `/music?server=[server]&type=[type]&id=[id]`
 
-### serer
+### server
 
 - 可选参数：`netease`, `tencent`, `kugou`, `baidu`, `kuwo`
 - 如果不设置，则默认为 `netease`
@@ -14,10 +14,12 @@
 ### id
 
 - 必填参数，如果没有特别强调，均为歌曲对应的 ID
+- 搜索时传入关键词；长度上限 512，且不能包含控制字符
 
 ### type
 
 - 可选参数包括：`details`，`name`，`artist`，`url`，`cover`，`lyric`，`playlist`，`search`
+- 不设置时默认为 `details`
 
 #### details
 

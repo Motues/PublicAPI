@@ -64,15 +64,21 @@ if(config.emojiOpen) app.use('/emoji/*', async (c, next) => {
 // 音乐接口：上游超时/风控会返回空数组或不含歌名的空详情，这类失败结果不缓存，
 // 避免 30 分钟内一直命中空数据（正常结果仍然缓存）
 if(config.musicOpen) app.use('/music/*', lruCacheMiddleware(60 * 30, {
+  namespace: 'music',
+  max: 300,
   skipWhen: (data: any) => {
     if (Array.isArray(data)) return data.length === 0;
     if (data && typeof data === 'object' && 'name' in data && !data.name) return true;
     return false;
   }
 })); // 音乐接口缓存30分钟
-if(config.avatarOpen) app.use('/avatar/*', lruCacheMiddleware(60 * 10)); // 头像接口缓存10分钟
+if(config.avatarOpen) app.use('/avatar/*', lruCacheMiddleware(60 * 10, { namespace: 'avatar', max: 200 })); // 头像接口缓存10分钟
 // 表情数据按请求域名生成图片绝对地址，缓存键需要带上 host，避免多域名之间串数据
-if(config.emojiOpen) app.use('/emoji/*', lruCacheMiddleware(60 * 30, { varyHeaders: ['host', 'x-forwarded-host', 'x-forwarded-proto'] }));
+if(config.emojiOpen) app.use('/emoji/*', lruCacheMiddleware(60 * 30, {
+  namespace: 'emoji',
+  max: 300,
+  varyHeaders: ['host', 'x-forwarded-host', 'x-forwarded-proto'],
+}));
 
 // 首页
 app.get('/', indexPage);

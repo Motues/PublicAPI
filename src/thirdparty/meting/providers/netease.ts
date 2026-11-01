@@ -105,11 +105,13 @@ export default class NeteaseProvider extends BaseProvider {
    * 获取歌曲详情
    */
   song(id: string): ApiConfig {
+    // 不要把请求参数直接拼进 JSON：非数字 id 用字符串形式，避免引号/结构注入
+    const songId = /^\d+$/.test(id) ? Number(id) : id;
     return {
       method: 'POST',
       url: 'https://music.163.com/api/v3/song/detail/',
       body: {
-        c: `[{"id":${id},"v":0}]`
+        c: JSON.stringify([{ id: songId, v: 0 }])
       },
       encode: 'netease_eapi',
       format: 'songs'
@@ -122,7 +124,7 @@ export default class NeteaseProvider extends BaseProvider {
   album(id: string): ApiConfig {
     return {
       method: 'POST',
-      url: `https://music.163.com/api/v1/album/${id}`,
+      url: `https://music.163.com/api/v1/album/${encodeURIComponent(id)}`,
       body: {
         total: 'true',
         offset: '0',
@@ -142,7 +144,7 @@ export default class NeteaseProvider extends BaseProvider {
   artist(id: string, limit: number = 50): ApiConfig {
     return {
       method: 'POST',
-      url: `https://music.163.com/api/v1/artist/${id}`,
+      url: `https://music.163.com/api/v1/artist/${encodeURIComponent(id)}`,
       body: {
         ext: 'true',
         private_cloud: 'true',
@@ -214,7 +216,7 @@ export default class NeteaseProvider extends BaseProvider {
     if (!id) {
       return JSON.stringify({ url: '' });
     }
-    const url = `https://p3.music.126.net/${this._encryptId(id)}/${id}.jpg?param=${size}y${size}`;
+    const url = `https://p3.music.126.net/${this._encryptId(id)}/${encodeURIComponent(id)}.jpg?param=${size}y${size}`;
     return JSON.stringify({ url: url });
   }
 

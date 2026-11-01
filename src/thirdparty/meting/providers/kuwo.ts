@@ -353,7 +353,7 @@ export default class KuwoProvider extends BaseProvider {
   playlist(id: string): ApiConfig {
     return {
       method: 'GET',
-      url: 'http://nplserver.kuwo.cn/pl.svc',
+      url: 'https://nplserver.kuwo.cn/pl.svc',
       body: {
         op: 'getlistinfo',
         pid: id,

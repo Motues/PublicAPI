@@ -51,7 +51,7 @@ export default class KugouProvider extends BaseProvider {
   song(id: string): ApiConfig {
     return {
       method: 'POST',
-      url: 'http://m.kugou.com/app/i/getSongInfo.php',
+      url: 'https://m.kugou.com/app/i/getSongInfo.php',
       body: {
         cmd: 'playInfo',
         hash: id,
@@ -179,7 +179,7 @@ export default class KugouProvider extends BaseProvider {
   lyric(id: string): ApiConfig {
     return {
       method: 'GET',
-      url: 'http://krcs.kugou.com/search',
+      url: 'https://krcs.kugou.com/search',
       body: {
         keyword: '%20-%20',
         ver: 1,
@@ -354,7 +354,7 @@ export default class KugouProvider extends BaseProvider {
         if (item.info.bitrate <= this.meting.temp.br && item.info.bitrate > maxBr) {
           const api: ApiConfig = {
             method: 'GET',
-            url: 'http://trackercdn.kugou.com/i/v2/',
+            url: 'https://trackercdn.kugou.com/i/v2/',
             body: {
               hash: item.hash,
               key: crypto.createHash('md5').update(item.hash + 'kgcloudv2').digest('hex'),
@@ -398,7 +398,7 @@ export default class KugouProvider extends BaseProvider {
 
     const api: ApiConfig = {
       method: 'GET',
-      url: 'http://lyrics.kugou.com/download',
+      url: 'https://lyrics.kugou.com/download',
       body: {
         charset: 'utf8',
         accesskey: data.candidates[0].accesskey,
