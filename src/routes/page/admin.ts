@@ -21,51 +21,127 @@ import { escapeHtml } from '../../utils/html.js';
  */
 
 const PAGE_STYLE = `
-  :root { --border-color: #333; --bg-color: #ffffff; --text-color: #24292e; --accent-color: #067ece; --code-bg: #f6f8fa; }
+  :root {
+    color-scheme: light dark;
+    --bg-color: #ffffff;
+    --surface-color: #ffffff;
+    --text-color: #24292e;
+    --muted-color: #666666;
+    --subtle-color: #888888;
+    --border-color: #333333;
+    --line-color: #dddddd;
+    --card-border: #eeeeee;
+    --accent-color: #067ece;
+    --accent-hover: #045b9c;
+    --accent-contrast: #ffffff;
+    --code-bg: #f6f8fa;
+    --control-bg: #ffffff;
+    --control-border: #dddddd;
+    --hover-bg: #333333;
+    --hover-text: #ffffff;
+    --soft-bg: #fafafa;
+    --soft-bg-strong: #f0f0f0;
+    --badge-bg: #f0f0f0;
+    --badge-text: #000000;
+    --notice-text: #444444;
+    --success-color: #28a745;
+    --danger-color: #dd4c4c;
+    --danger-contrast: #ffffff;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-color: #0d1117;
+      --surface-color: #161b22;
+      --text-color: #c9d1d9;
+      --muted-color: #8b949e;
+      --subtle-color: #8b949e;
+      --border-color: #30363d;
+      --line-color: #30363d;
+      --card-border: #30363d;
+      --accent-color: #58a6ff;
+      --accent-hover: #79c0ff;
+      --accent-contrast: #0d1117;
+      --code-bg: #161b22;
+      --control-bg: #0d1117;
+      --control-border: #30363d;
+      --hover-bg: #21262d;
+      --hover-text: #f0f6fc;
+      --soft-bg: #161b22;
+      --soft-bg-strong: #21262d;
+      --badge-bg: #21262d;
+      --badge-text: #e6edf3;
+      --notice-text: #c9d1d9;
+      --success-color: #3fb950;
+      --danger-color: #f85149;
+      --danger-contrast: #0d1117;
+    }
+  }
+
   body { max-width: 780px; margin: 40px auto; padding: 20px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace, 'Noto Serif SC', -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-color); line-height: 1.5; }
   .box { border: 1px solid var(--border-color); padding: 20px; margin-bottom: 25px; position: relative; }
-  .box-title { position: absolute; top: -12px; left: 20px; background: white; padding: 0 10px; font-size: 14px; font-weight: bold; }
+  .box-title { position: absolute; top: -12px; left: 20px; background: var(--bg-color); padding: 0 10px; font-size: 14px; font-weight: bold; }
   .sys-header { text-align: center; margin-bottom: 20px; }
   .sys-title { font-size: 24px; margin: 10px 0; border-bottom: 2px solid var(--accent-color); display: inline-block; }
-  .sys-desc { font-size: 14px; color: #666; min-height: 20px; margin-top: 8px; }
-  .stats-info { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd; }
+  .sys-desc { font-size: 14px; color: var(--muted-color); min-height: 20px; margin-top: 8px; }
+  .stats-info { margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--line-color); }
   .stats-info .stats-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 14px; gap: 10px; }
   .stats-label::before { content: "> "; color: var(--accent-color); font-weight: bold; }
-  .stats-value b { color: #000; background: #f0f0f0; padding: 0 6px; border-radius: 2px; }
+  .stats-value b { color: var(--badge-text); background: var(--badge-bg); padding: 0 6px; border-radius: 2px; }
   .field { margin-bottom: 14px; }
   .field > .stats-label { display: block; font-size: 14px; margin-bottom: 6px; }
-  input[type=text], input[type=password], textarea, select { font-family: inherit; font-size: 14px; color: inherit; border: 1px solid #ddd; background: #fff; padding: 6px 8px; width: 100%; box-sizing: border-box; border-radius: 0; }
+  input[type=text], input[type=password], textarea, select { font-family: inherit; font-size: 14px; color: inherit; border: 1px solid var(--control-border); background: var(--control-bg); padding: 6px 8px; width: 100%; box-sizing: border-box; border-radius: 0; }
   input[type=text]:focus, input[type=password]:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent-color); }
   textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
   .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
-  .btn { font-family: inherit; font-size: 13px; border: 1px solid var(--border-color); background: #fff; color: var(--text-color); padding: 6px 14px; cursor: pointer; transition: all 0.2s ease; text-decoration: none; display: inline-block; }
-  .btn:hover { background: var(--border-color); color: #fff; }
+  .btn { font-family: inherit; font-size: 13px; border: 1px solid var(--border-color); background: var(--control-bg); color: var(--text-color); padding: 6px 14px; cursor: pointer; transition: all 0.2s ease; text-decoration: none; display: inline-block; }
+  .btn:hover { background: var(--hover-bg); color: var(--hover-text); }
   .btn.primary { border-color: var(--accent-color); color: var(--accent-color); }
-  .btn.primary:hover { background: var(--accent-color); color: #fff; }
-  .btn.danger { border-color: #dd4c4c; color: #dd4c4c; }
-  .btn.danger:hover { background: #dd4c4c; color: #fff; }
+  .btn.primary:hover { background: var(--accent-color); color: var(--accent-contrast); }
+  .btn.danger { border-color: var(--danger-color); color: var(--danger-color); }
+  .btn.danger:hover { background: var(--danger-color); color: var(--danger-contrast); }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-  .msg { font-size: 13px; min-height: 18px; color: #666; }
-  .msg.ok { color: #28a745; }
-  .msg.err { color: #dd4c4c; }
-  .hint { margin-top: 12px; font-size: 13px; color: #888; }
-  .notice { border-left: 3px solid var(--accent-color); background: var(--code-bg); padding: 10px 14px; font-size: 13px; color: #444; margin-bottom: 15px; }
+  .msg { font-size: 13px; min-height: 18px; color: var(--muted-color); }
+  .msg.ok { color: var(--success-color); }
+  .msg.err { color: var(--danger-color); }
+  .hint { margin-top: 12px; font-size: 13px; color: var(--subtle-color); }
+  .notice { border-left: 3px solid var(--accent-color); background: var(--code-bg); padding: 10px 14px; font-size: 13px; color: var(--notice-text); margin-bottom: 15px; }
   .tabs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 25px; }
-  .tab { font-family: inherit; font-size: 13px; border: 1px solid #ddd; background: #fff; color: inherit; padding: 8px 14px; cursor: pointer; transition: all 0.2s ease; }
-  .tab:hover { border-color: var(--border-color); background: #fafafa; }
-  .tab.active { border-color: var(--border-color); background: #fafafa; font-weight: bold; box-shadow: inset 0 -2px 0 var(--accent-color); }
+  .tab { font-family: inherit; font-size: 13px; border: 1px solid var(--control-border); background: var(--control-bg); color: inherit; padding: 8px 14px; cursor: pointer; transition: all 0.2s ease; }
+  .tab:hover { border-color: var(--border-color); background: var(--soft-bg); }
+  .tab.active { border-color: var(--border-color); background: var(--soft-bg); font-weight: bold; box-shadow: inset 0 -2px 0 var(--accent-color); }
   .panel { display: none; }
   .panel.active { display: block; }
   .svc-head, .svc-row { display: grid; grid-template-columns: 1fr 1.4fr auto auto; gap: 8px; align-items: center; }
-  .svc-head { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .svc-head { font-size: 12px; color: var(--subtle-color); margin-bottom: 6px; }
   .svc-row { margin-bottom: 8px; }
   .svc-row select { width: auto; }
   .svc-row .btn { white-space: nowrap; }
-  .footer { margin-top: 25px; padding: 15px; border: 1px solid var(--border-color); text-align: center; font-size: 12px; color: #666; }
-  .footer a { color: var(--text-color); text-decoration: none; font-weight: bold; border-bottom: 1px solid #ccc; padding: 0 2px; transition: 0.2s; }
-  .footer a:hover { color: #fff; background-color: var(--border-color); border-bottom-color: var(--border-color); }
-  hr { border: 0; border-top: 1px dashed #ccc; margin: 20px 0; }
-  @media (max-width: 640px) { .svc-head { display: none; } .svc-row { grid-template-columns: 1fr; border: 1px dashed #ddd; padding: 10px; } }
+  .stat-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 15px 0; }
+  .stat-card { border: 1px solid var(--card-border); padding: 10px 12px; }
+  .stat-card-label { font-size: 12px; color: var(--subtle-color); }
+  .stat-card-value { font-size: 22px; font-weight: bold; margin-top: 4px; }
+  .stat-card-value small { font-size: 12px; font-weight: normal; color: var(--subtle-color); margin-left: 2px; }
+  .range.active { border-color: var(--border-color); background: var(--soft-bg); color: var(--text-color); font-weight: bold; box-shadow: inset 0 -2px 0 var(--accent-color); }
+  .range.active:hover { background: var(--soft-bg-strong); color: var(--text-color); }
+  .chart svg { width: 100%; height: auto; display: block; }
+  .chart-empty { font-size: 13px; color: var(--subtle-color); padding: 24px 0; text-align: center; }
+  .chart-grid { stroke: var(--line-color); }
+  .chart-axis { fill: var(--subtle-color); }
+  .chart-hit { fill: var(--soft-bg-strong); opacity: 0; pointer-events: all; }
+  .chart-bar { fill: var(--accent-color); transition: fill 0.15s ease, opacity 0.15s ease; }
+  .chart-col:hover .chart-hit { opacity: 0.55; }
+  .chart-col:hover .chart-bar { fill: var(--accent-hover); opacity: 1; }
+  .bar-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 84px 56px; gap: 10px; align-items: center; font-size: 13px; margin-bottom: 8px; }
+  .bar-name { font-weight: bold; }
+  .bar-track { height: 14px; background: var(--soft-bg-strong); border: 1px solid var(--card-border); }
+  .bar-fill { display: block; height: 100%; background: var(--accent-color); }
+  .bar-value, .bar-share { text-align: right; color: var(--muted-color); white-space: nowrap; }
+  .footer { margin-top: 25px; padding: 15px; border: 1px solid var(--border-color); text-align: center; font-size: 12px; color: var(--muted-color); }
+  .footer a { color: var(--text-color); text-decoration: none; font-weight: bold; border-bottom: 1px solid var(--line-color); padding: 0 2px; transition: 0.2s; }
+  .footer a:hover { color: var(--hover-text); background-color: var(--hover-bg); border-bottom-color: var(--hover-bg); }
+  hr { border: 0; border-top: 1px dashed var(--line-color); margin: 20px 0; }
+  @media (max-width: 640px) { .svc-head { display: none; } .svc-row { grid-template-columns: 1fr; border: 1px dashed var(--line-color); padding: 10px; } .stat-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bar-row { grid-template-columns: 72px minmax(0, 1fr) 64px; } .bar-share { display: none; } }
 `;
 
 /** 客户端公共方法 */
@@ -450,6 +526,186 @@ const PANEL_SCRIPT = `
     });
   }
 
+  // ---- 调用分析 ----
+  const analyticsTab = document.querySelector('.tab[data-tab="analytics"]');
+  const trendChart = document.getElementById('trend-chart');
+  const endpointChart = document.getElementById('endpoint-chart');
+
+  if (analyticsTab && trendChart && endpointChart) {
+    const analyticsMsg = document.getElementById('analytics-msg');
+    const todayEl = document.getElementById('stat-today');
+    const totalEl = document.getElementById('stat-total');
+    const qpsEl = document.getElementById('stat-qps');
+    const uptimeEl = document.getElementById('stat-uptime');
+    const refreshButton = document.getElementById('refresh-analytics');
+    const rangeButtons = Array.prototype.slice.call(document.querySelectorAll('.range'));
+    let analyticsDays = 30;
+    let analyticsLoaded = false;
+
+    function formatNumber(value) {
+      return String(value).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');
+    }
+
+    function escapeText(value) {
+      return String(value).replace(/[&<>"']/g, function (ch) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+      });
+    }
+
+    function formatUptime(seconds) {
+      const days = Math.floor(seconds / 86400);
+      const hours = Math.floor((seconds % 86400) / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      if (days > 0) return days + ' 天 ' + hours + ' 小时';
+      if (hours > 0) return hours + ' 小时 ' + minutes + ' 分';
+      return minutes + ' 分钟';
+    }
+
+    function endpointLabel(name) {
+      const labels = { music: 'Music API', avatar: 'Avatar API', emoji: 'Emoji API' };
+      return labels[name] || name;
+    }
+
+    function renderTrend(daily) {
+      if (!daily || daily.length === 0) {
+        trendChart.innerHTML = '<div class="chart-empty">暂无数据</div>';
+        return;
+      }
+
+      const width = 720;
+      const height = 220;
+      const padLeft = 46;
+      const padRight = 8;
+      const padTop = 12;
+      const padBottom = 34;
+      const plotWidth = width - padLeft - padRight;
+      const plotHeight = height - padTop - padBottom;
+      const maxCount = Math.max.apply(null, daily.map(function (item) { return item.count; }).concat([1]));
+      const barWidth = plotWidth / daily.length;
+      const gap = barWidth > 14 ? Math.min(6, barWidth * 0.3) : 1;
+      const labelStep = Math.max(1, Math.ceil(daily.length / 7));
+      let grid = '';
+      let bars = '';
+      let labels = '';
+
+      for (let i = 0; i <= 4; i += 1) {
+        const y = padTop + (plotHeight * i) / 4;
+        const value = Math.round(maxCount - (maxCount * i) / 4);
+        grid += '<line x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (width - padRight) + '" y2="' + y.toFixed(1) + '" class="chart-grid" stroke-width="1" />';
+        grid += '<text x="' + (padLeft - 6) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" font-size="10" class="chart-axis">' + formatNumber(value) + '</text>';
+      }
+
+      daily.forEach(function (item, index) {
+        const barHeight = (item.count / maxCount) * plotHeight;
+        const columnX = padLeft + index * barWidth;
+        const x = columnX + gap / 2;
+        const y = padTop + plotHeight - barHeight;
+        const rectWidth = Math.max(barWidth - gap, 1);
+
+        // 每列包一层 <g>，用透明矩形覆盖整列，hover 时高亮该天的柱子
+        bars += '<g class="chart-col">';
+        bars += '<title>' + item.date + '：' + formatNumber(item.count) + ' 次</title>';
+        bars += '<rect class="chart-hit" x="' + columnX.toFixed(1) + '" y="' + padTop + '" width="' + barWidth.toFixed(1) + '" height="' + plotHeight + '" />';
+        bars += '<rect class="chart-bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + rectWidth.toFixed(1) + '" height="' + barHeight.toFixed(1) + '" opacity="0.85" />';
+        bars += '</g>';
+
+        if (index % labelStep === 0 || index === daily.length - 1) {
+          labels += '<text x="' + (x + rectWidth / 2).toFixed(1) + '" y="' + (height - 12) + '" text-anchor="middle" font-size="10" class="chart-axis">' + item.date.slice(5) + '</text>';
+        }
+      });
+
+      trendChart.innerHTML = '<svg viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="按日调用趋势">' + grid + bars + labels + '</svg>';
+    }
+
+    function renderEndpoints(endpoints) {
+      if (!endpoints || endpoints.length === 0) {
+        endpointChart.innerHTML = '<div class="chart-empty">暂无端点数据（本版本上线后开始累积）</div>';
+        return;
+      }
+
+      endpointChart.innerHTML = endpoints.map(function (endpoint) {
+        const percent = Math.max(endpoint.share * 100, 0.5);
+        return '<div class="bar-row">' +
+          '<span class="bar-name">' + escapeText(endpointLabel(endpoint.name)) + '</span>' +
+          '<span class="bar-track"><span class="bar-fill" style="width:' + percent.toFixed(1) + '%"></span></span>' +
+          '<span class="bar-value">' + formatNumber(endpoint.count) + ' 次</span>' +
+          '<span class="bar-share">' + (endpoint.share * 100).toFixed(1) + '%</span>' +
+          '</div>';
+      }).join('');
+    }
+
+    const analyticsCache = {};
+    let analyticsRequest = 0;
+
+    function renderAnalytics(data, cached) {
+      todayEl.textContent = formatNumber(data.today);
+      totalEl.textContent = formatNumber(data.total);
+      qpsEl.innerHTML = data.qps.toFixed(2) + ' <small>req/s</small>';
+      uptimeEl.textContent = formatUptime(data.uptimeSeconds);
+      renderTrend(data.daily);
+      renderEndpoints(data.endpoints);
+      setMsg(
+        analyticsMsg,
+        '[OK] 近 ' + data.days + ' 天区间调用 ' + formatNumber(data.rangeTotal) + ' 次' + (cached ? '（缓存）' : ''),
+        true
+      );
+    }
+
+    async function loadAnalytics(days, force) {
+      analyticsDays = days;
+      rangeButtons.forEach(function (button) {
+        button.classList.toggle('active', Number(button.dataset.days) === days);
+      });
+
+      // 任何一次区间切换都让在途请求失效，避免旧响应覆盖新选择
+      const requestId = ++analyticsRequest;
+
+      // 已加载过的区间直接复用，切换时无需等待网络
+      if (!force && analyticsCache[days]) {
+        renderAnalytics(analyticsCache[days], true);
+        if (refreshButton) refreshButton.disabled = false;
+        return;
+      }
+
+      // 切换区间时保留已有图表，避免面板高度塌缩造成“整页刷新”的观感
+      if (refreshButton) refreshButton.disabled = true;
+      setMsg(analyticsMsg, '载入中…', null);
+
+      try {
+        const data = await adminFetch('/analytics?days=' + days);
+        if (requestId !== analyticsRequest) return; // 已有更新的请求，丢弃过期响应
+        analyticsCache[days] = data;
+        analyticsLoaded = true;
+        renderAnalytics(data, false);
+      } catch (error) {
+        if (requestId !== analyticsRequest) return;
+        setMsg(analyticsMsg, '[FAIL] ' + error.message, false);
+        if (trendChart.querySelector('svg') === null) {
+          trendChart.innerHTML = '<div class="chart-empty">载入失败</div>';
+          endpointChart.innerHTML = '<div class="chart-empty">载入失败</div>';
+        }
+      } finally {
+        if (requestId === analyticsRequest && refreshButton) refreshButton.disabled = false;
+      }
+    }
+
+    analyticsTab.addEventListener('click', function () {
+      if (!analyticsLoaded) loadAnalytics(analyticsDays);
+    });
+
+    rangeButtons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        loadAnalytics(Number(button.dataset.days));
+      });
+    });
+
+    if (refreshButton) {
+      refreshButton.addEventListener('click', function () {
+        loadAnalytics(analyticsDays, true);
+      });
+    }
+  }
+
   // ---- 修改密码 ----
   const passwordForm = document.getElementById('password-form');
   if (passwordForm) {
@@ -510,6 +766,9 @@ const pageShell = (title: string, body: string, script: string): string => `<!DO
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d1117">
   <meta name="robots" content="noindex, nofollow">
   <title>${title}</title>
   <style>${PAGE_STYLE}</style>
@@ -667,7 +926,7 @@ const panelView = (options: PanelOptions): string => {
       <div class="sys-title">${escapeHtml(site.siteName || 'Public API Server')}</div>
       <div class="sys-desc">配置修改后立即生效，无需重启服务</div>
     </div>
-    <div>登录状态: <span style="float:right; color: #28a745;">[AUTHENTICATED]</span></div>
+    <div>登录状态: <span style="float:right; color: var(--success-color);">[AUTHENTICATED]</span></div>
     <div>密码来源: <span style="float:right">${escapeHtml(passwordSourceLabel(passwordSource))}</span></div>
     <div>会话有效期: <span style="float:right">${sessionTtlMinutes} 分钟</span></div>
     <div class="stats-info">
@@ -699,6 +958,7 @@ const panelView = (options: PanelOptions): string => {
     <button class="tab" type="button" data-tab="services">[LIST] 服务目录</button>
     <button class="tab" type="button" data-tab="meting">[MUSIC] 音乐设置</button>
     <button class="tab" type="button" data-tab="emoji">[EMOJI] 表情数据</button>
+    <button class="tab" type="button" data-tab="analytics">[STAT] 调用分析</button>
     <button class="tab" type="button" data-tab="security">[SEC] 安全设置</button>
   </div>
 
@@ -793,6 +1053,51 @@ const panelView = (options: PanelOptions): string => {
         <span class="msg" id="emoji-msg"></span>
       </div>
       <div class="hint">* 保存后会立即清理表情接口缓存；图片文件放在 public/emoji/ 下，通过 /static/emoji/... 访问，详见 /docs/emoji。</div>
+    </div>
+  </div>
+
+  <div class="panel" data-panel="analytics">
+    <div class="box">
+      <div class="box-title">[STAT] 调用分析 · data/stats</div>
+      <div class="notice">
+        统计范围：音乐 / 头像 / 表情接口（不含后台页面、静态资源与首页）。<br>
+        按日趋势基于历史累计数据，端点分布自本版本上线后开始累积，最多保留 90 天。
+      </div>
+      <div class="stat-cards">
+        <div class="stat-card">
+          <div class="stat-card-label">今日调用</div>
+          <div class="stat-card-value" id="stat-today">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">累计调用</div>
+          <div class="stat-card-value" id="stat-total">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">近一分钟</div>
+          <div class="stat-card-value" id="stat-qps">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">运行时长</div>
+          <div class="stat-card-value" id="stat-uptime">-</div>
+        </div>
+      </div>
+      <div class="actions">
+        <span class="stats-label">统计区间</span>
+        <button class="btn range" type="button" data-days="7">近 7 天</button>
+        <button class="btn range active" type="button" data-days="30">近 30 天</button>
+        <button class="btn range" type="button" data-days="90">近 90 天</button>
+        <button class="btn" type="button" id="refresh-analytics">刷新</button>
+        <span class="msg" id="analytics-msg"></span>
+      </div>
+      <div class="field">
+        <span class="stats-label">按日调用趋势</span>
+        <div class="chart" id="trend-chart"><div class="chart-empty">点击「[STAT] 调用分析」加载数据</div></div>
+      </div>
+      <div class="field">
+        <span class="stats-label">端点分布</span>
+        <div id="endpoint-chart"><div class="chart-empty">点击「[STAT] 调用分析」加载数据</div></div>
+      </div>
+      <div class="hint">* 调用量每 5 秒落盘一次，重启服务不会丢失已落盘数据；近一分钟 QPS 为内存实时值，重启后从 0 重新累积。</div>
     </div>
   </div>
 

@@ -30,34 +30,73 @@ export const indexPage = async (c) => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="color-scheme" content="light dark">
+      <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+      <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d1117">
       <title>${siteName}</title>
       <link rel="stylesheet" href="https://fonts.font.im/css2?family=Noto+Serif+SC:wght@400;700&display=swap">
       <style>
-        :root { --border-color: #333; --bg-color: #ffffff; --text-color: #24292e; --accent-color: #067ece; }
+        :root {
+          color-scheme: light dark;
+          --border-color: #333333;
+          --bg-color: #ffffff;
+          --text-color: #24292e;
+          --muted-color: #666666;
+          --subtle-color: #888888;
+          --line-color: #dddddd;
+          --accent-color: #067ece;
+          --soft-bg: #fafafa;
+          --badge-bg: #f0f0f0;
+          --badge-text: #000000;
+          --success-color: #28a745;
+          --danger-color: #dd4c4c;
+          --hover-bg: #333333;
+          --hover-text: #ffffff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --border-color: #30363d;
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --muted-color: #8b949e;
+            --subtle-color: #8b949e;
+            --line-color: #30363d;
+            --accent-color: #58a6ff;
+            --soft-bg: #161b22;
+            --badge-bg: #21262d;
+            --badge-text: #e6edf3;
+            --success-color: #3fb950;
+            --danger-color: #f85149;
+            --hover-bg: #21262d;
+            --hover-text: #f0f6fc;
+          }
+        }
+
         body { max-width: 600px; margin: 40px auto; padding: 20px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace, 'Noto Serif SC', -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif; background-color: var(--bg-color);color: var(--text-color);line-height: 1.5; }
         .box { border: 1px solid var(--border-color); padding: 20px; margin-bottom: 25px; position: relative; }
-        .box-title { position: absolute; top: -12px; left: 20px; background: white; padding: 0 10px; font-size: 14px; font-weight: bold; }
+        .box-title { position: absolute; top: -12px; left: 20px; background: var(--bg-color); padding: 0 10px; font-size: 14px; font-weight: bold; }
         .sys-header { text-align: center; margin-bottom: 20px; }
         .sys-title { font-size: 24px; margin: 10px 0; border-bottom: 2px solid var(--accent-color); display: inline-block; }
-        .sys-desc { font-size: 14px; color: #666; min-height: 20px; margin-top: 8px; }
+        .sys-desc { font-size: 14px; color: var(--muted-color); min-height: 20px; margin-top: 8px; }
         .typewriter-text { border-right: 2px solid var(--accent-color); animation: blink 0.7s step-end infinite; }
         @keyframes blink { 50% { border-color: transparent; } }
         .api-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
-        .api-item { border: 1px solid #ddd; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: inherit; transition: all 0.2s ease; cursor: pointer; }
-        .api-item:hover { border-color: var(--border-color); background: #fafafa; }
+        .api-item { border: 1px solid var(--line-color); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: inherit; transition: all 0.2s ease; cursor: pointer; }
+        .api-item:hover { border-color: var(--border-color); background: var(--soft-bg); }
         .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .on { background-color: #28a745; }
-        .off { background-color: #dd4c4c; }
-        .stats-info { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd; }
+        .on { background-color: var(--success-color); }
+        .off { background-color: var(--danger-color); }
+        .stats-info { margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--line-color); }
         .stats-info .stats-row {display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 14px; }
         .stats-label::before { content: "> "; color: var(--accent-color); font-weight: bold; }
-        .stats-value b { color: #000; background: #f0f0f0; padding: 0 6px; border-radius: 2px; }
-        .footer { margin-top: 25px; padding: 15px; border: 1px solid var(--border-color); text-align: center; font-size: 12px; color: #666; }
-        .footer a { color: var(--text-color); text-decoration: none; font-weight: bold; border-bottom: 1px solid #ccc; padding: 0 2px; transition: 0.2s; }
-        .footer a:hover { color: #fff; background-color: var(--border-color); border-bottom-color: var(--border-color); }
-        hr { border: 0; border-top: 1px dashed #ccc; margin: 20px 0; }
+        .stats-value b { color: var(--badge-text); background: var(--badge-bg); padding: 0 6px; border-radius: 2px; }
+        .footer { margin-top: 25px; padding: 15px; border: 1px solid var(--border-color); text-align: center; font-size: 12px; color: var(--muted-color); }
+        .footer a { color: var(--text-color); text-decoration: none; font-weight: bold; border-bottom: 1px solid var(--line-color); padding: 0 2px; transition: 0.2s; }
+        .footer a:hover { color: var(--hover-text); background-color: var(--hover-bg); border-bottom-color: var(--hover-bg); }
+        hr { border: 0; border-top: 1px dashed var(--line-color); margin: 20px 0; }
         .cmd { color: var(--accent-color); }
-        #intro-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.8s ease-out, visibility 0.8s ease-out; }
+        #intro-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.8s ease-out, visibility 0.8s ease-out; }
         #intro-overlay.fade-out { opacity: 0; visibility: hidden; }
         #intro-text { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace, 'Noto Serif SC', -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 20px; color: var(--text-color); padding-right: 5px; text-align: center; display: inline-block; }
         #intro-text::after { content: '|'; animation: blink 0.7s step-end infinite; color: var(--accent-color); margin-left: 2px; }
@@ -81,7 +120,7 @@ export const indexPage = async (c) => {
           <div>操作系统: <span style="float:right">${osName}</span></div>
           <div>运行框架: <span style="float:right">Node.js / Hono</span></div>
           <div>系统时间: <span style="float:right">${currentTime}</span></div>
-          <div>在线状态: <span style="float:right; color: #28a745;">[STATUS OK]</span></div>
+          <div>在线状态: <span style="float:right; color: var(--success-color);">[STATUS OK]</span></div>
           <div class="stats-info">
             <div class="stats-row">
               <span class="stats-label">总请求数</span>
@@ -111,7 +150,7 @@ export const indexPage = async (c) => {
             </a>
             ${serviceCards}
           </div>
-          <div style="margin-top: 15px; font-size: 13px; color: #888;">
+          <div style="margin-top: 15px; font-size: 13px; color: var(--subtle-color);">
               * 点击上方卡片进入对应服务页面
           </div>
         </div>

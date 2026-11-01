@@ -29,7 +29,7 @@ import {
   setSessionCookie,
   verifyAdminPassword,
 } from '../../utils/adminAuth.js';
-import { getStats } from '../../utils/middleware/counter.js';
+import { getAnalytics, getStats } from '../../utils/middleware/counter.js';
 import { clearResponseCache } from '../../utils/middleware/lruCache.js';
 import { clearMusicInfoCache } from '../../controllers/musicController.js';
 import { getSystemInfo } from '../../utils/systemInfo.js';
@@ -326,6 +326,14 @@ adminApi.get('/status', requireAdminAuth, async (c) => {
     },
     processUptimeSeconds: Math.floor(process.uptime()),
   });
+});
+
+/** 调用分析（按日趋势、端点分布、实时 QPS） */
+adminApi.get('/analytics', requireAdminAuth, (c) => {
+  const requested = Number(c.req.query('days'));
+  const days = [7, 30, 90].includes(requested) ? requested : 30;
+
+  return c.json(getAnalytics(days));
 });
 
 /** 手动清理接口缓存 */

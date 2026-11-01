@@ -16,6 +16,10 @@
 
 提供 OwO 格式的表情数据接口（参考 [owo.imaegoo.com/owo.json](https://owo.imaegoo.com/owo.json)），兼容 Twikoo、Artalk、Waline 等评论系统的自定义表情包；图片资源位于 `public/emoji/`，随仓库一起发布，由本站自己托管，不依赖第三方图床。
 
+## 界面
+
+首页、文档页与管理后台均为原生 HTML + 内联样式，并通过 `prefers-color-scheme` 跟随系统 / 浏览器的深色模式偏好自动切换配色，无需手动设置。
+
 ## 部署方式
 
 ### Docker Compose
@@ -79,6 +83,10 @@ pnpm start
 - `data/config/services.json`：首页服务目录的增删改
 - `data/config/meting.json`：网易云 Cookie（保存后自动清理音乐相关缓存）
 - `data/config/emoji.json`：OwO 表情数据（保存后自动清理表情接口缓存；升级后新版本内置的分组会自动补齐到该文件，详见 [/docs/emoji](/docs/emoji)）
+
+后台还提供「调用分析」面板：今日 / 累计调用量、近一分钟 QPS、近 7 / 30 / 90 天的按日趋势与端点分布，图表为内联 SVG，无额外依赖。
+
+统计口径仅覆盖音乐 / 头像 / 表情接口（不含后台页面与静态资源），数据保存在 `data/stats/`；端点分布自该功能上线后开始累积，最多保留 90 天。
 
 ## 配置文件
 
