@@ -76,12 +76,15 @@ pnpm start
 | `ADMIN_PASSWORD` | 管理后台密码（明文），优先级最高 | 未设置 |
 | `ADMIN_PASSWORD_HASH` | 管理后台密码的 scrypt 哈希，格式 `scrypt$salt$hash` | 未设置 |
 | `ADMIN_SESSION_SECRET` | 管理后台会话签名密钥，不设置则自动生成并保存到 `data/config/admin.json` | 自动生成 |
-| `ADMIN_SESSION_TTL` | 管理后台会话有效期（分钟） | `120` |
+| `ADMIN_SESSION_TTL` | 管理后台会话有效期（分钟，最长 10080） | `120` |
 | `ADMIN_SETUP_REMOTE` | 设置为 `true` 时允许从公网完成首次密码初始化 | 关闭 |
+| `ADMIN_SETUP_TOKEN` | 首次初始化令牌；不设置则随机生成并打印到服务端日志 | 自动生成 |
 
 > 部署在 Nginx / Caddy / Cloudflare 等反向代理之后时，必须设置 `TRUST_PROXY=true`，否则所有请求都会按代理的 socket IP 共享限流配额；同时建议设置 `TRUSTED_PROXIES`（例如 `127.0.0.1`）和 `PUBLIC_ORIGIN`。直接暴露到公网时保持 `TRUST_PROXY` 关闭，任何客户端都无法通过伪造 `X-Forwarded-For` 绕过限流或登录锁定。
 
 ## 管理后台
+
+首次部署且未配置 `ADMIN_PASSWORD` / `ADMIN_PASSWORD_HASH` 时，打开 `/admin` 会进入初始化页；需要填写服务端日志中的 `Admin setup token`（或预先设置 `ADMIN_SETUP_TOKEN`）。初始化完成后该页面自动关闭。退出登录会轮换会话密钥，使其他设备上的会话一并失效（若使用固定的 `ADMIN_SESSION_SECRET` 则只能清除当前浏览器）。
 
 访问 `/admin` 即可实时修改配置，保存后立即生效，无需重启服务：
 

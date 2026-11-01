@@ -4,9 +4,9 @@ import { bodyLimit } from 'hono/body-limit';
 import {
   ConfigValidationError,
   loadEmojiData,
-  loadMetingSettings,
   loadServices,
   loadSiteConfig,
+  getMetingCookieStatus,
   saveEmojiData,
   saveMetingSettings,
   saveServices,
@@ -29,6 +29,7 @@ import {
   saveAdminPassword,
   setSessionCookie,
   verifyAdminPassword,
+  verifySetupToken,
 } from '../../utils/adminAuth.js';
 import { getAnalytics, getStats } from '../../utils/middleware/counter.js';
 import { clearResponseCache } from '../../utils/middleware/lruCache.js';
@@ -152,6 +153,17 @@ adminApi.post('/setup', setupRateLimit, async (c) => {
   }
 
   const body = await readJsonBody(c);
+  const setupToken = typeof body.setupToken === 'string'
+    ? body.setupToken
+    : c.req.header('x-admin-setup-token') ?? '';
+
+  if (!verifySetupToken(setupToken)) {
+    logger.warn('Rejected admin setup with invalid token', 'Admin');
+    return c.json({
+      error: '初始化令牌不正确。请查看服务端启动日志中的 Admin setup token，或设置 ADMIN_SETUP_TOKEN 后重启服务。',
+    }, 403);
+  }
+
   const password = typeof body.password === 'string' ? body.password : '';
   const confirmPassword = typeof body.confirmPassword === 'string' ? body.confirmPassword : '';
 
@@ -219,9 +231,21 @@ adminApi.post('/login', loginRateLimit, async (c) => {
   return c.json({ ok: true, authenticated: true, expiresAt });
 });
 
-/** 退出登录 */
+/** 退出登录；已登录时轮换会话密钥，使其他设备上的会话一并失效 */
 adminApi.post('/logout', (c) => {
+  const wasAuthenticated = isAuthenticated(c);
   clearSessionCookie(c);
+
+  if (wasAuthenticated) {
+    try {
+      if (!rotateSessionSecret()) {
+        logger.info('Session secret is fixed by ADMIN_SESSION_SECRET; other sessions cannot be revoked', 'Admin');
+      }
+    } catch (error) {
+      logger.error('Failed to rotate session secret on logout:', error, 'Admin');
+    }
+  }
+
   return c.json({ ok: true, authenticated: false });
 });
 
@@ -276,7 +300,7 @@ adminApi.get('/config', requireAdminAuth, (c) => {
   return c.json({
     site: loadSiteConfig(),
     services: loadServices(),
-    meting: loadMetingSettings(),
+    meting: getMetingCookieStatus(),
     emoji: loadEmojiData(),
   });
 });
@@ -312,11 +336,18 @@ adminApi.put('/config/services', requireAdminAuth, async (c) => {
 adminApi.put('/config/meting', requireAdminAuth, async (c) => {
   const body = await readJsonBody(c);
   return writeConfig(c, () => {
-    const saved = saveMetingSettings({ cookie: body.cookie });
+    const clearCookie = body.clear === true;
+    const submittedCookie = typeof body.cookie === 'string' ? body.cookie : undefined;
+    // 空字符串表示“保持原值”，显式 clear 才会清空；避免用掩码值覆盖真实 Cookie
+    const cookie = clearCookie
+      ? ''
+      : (submittedCookie && submittedCookie.trim() !== '' ? submittedCookie : undefined);
+
+    const saved = saveMetingSettings({ cookie });
     const clearedResponses = clearResponseCache();
     const clearedSongs = clearMusicInfoCache();
     logger.info(`Meting config updated, cleared ${clearedResponses} responses / ${clearedSongs} song details`, 'Admin');
-    return saved;
+    return getMetingCookieStatus(saved);
   });
 });
 

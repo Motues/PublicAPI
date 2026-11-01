@@ -24,8 +24,13 @@ import { logger } from './logger.js';
 /** 会话 Cookie 名称 */
 export const ADMIN_SESSION_COOKIE = 'public_api_admin_session';
 
+/** HTTPS 下使用 __Host- 前缀，限制为当前主机且必须 Secure */
+const ADMIN_SESSION_COOKIE_HOST = `__Host-${ADMIN_SESSION_COOKIE}`;
+
 /** 会话默认有效期（分钟） */
 const DEFAULT_SESSION_TTL_MINUTES = 120;
+/** 会话最长有效期（分钟），避免签发出长期有效的令牌 */
+const MAX_SESSION_TTL_MINUTES = 60 * 24 * 7;
 
 /** 连续登录失败次数上限与锁定时长 */
 const MAX_LOGIN_FAILURES = 5;
@@ -105,7 +110,7 @@ const readAdminFile = (): AdminFileConfig => {
 const writeAdminFile = (data: AdminFileConfig): void => {
   const configDir = join(process.cwd(), 'data', 'config');
   if (!existsSync(configDir)) {
-    mkdirSync(configDir, { recursive: true });
+    mkdirSync(configDir, { recursive: true, mode: 0o700 });
   }
 
   const configPath = getAdminConfigPath();
@@ -280,11 +285,47 @@ export const rotateSessionSecret = (): boolean => {
   return true;
 };
 
+/** 初始化令牌缓存；未配置 ADMIN_SETUP_TOKEN 时随机生成并打印到控制台 */
+let setupTokenCache: string | null = null;
+
+/**
+ * 获取首次初始化令牌。
+ *
+ * 即使反向代理把公网请求误判成内网，没有这个令牌也无法初始化管理员密码。
+ * 未设置 ADMIN_SETUP_TOKEN 时生成随机令牌并打印一次，管理员从服务端日志读取。
+ */
+export const getSetupToken = (): string => {
+  if (setupTokenCache) {
+    return setupTokenCache;
+  }
+
+  const fromEnv = (process.env.ADMIN_SETUP_TOKEN ?? '').trim();
+  if (fromEnv !== '') {
+    setupTokenCache = fromEnv;
+    return setupTokenCache;
+  }
+
+  setupTokenCache = randomBytes(16).toString('hex');
+  logger.warn(
+    `Admin setup token: ${setupTokenCache} (enter it on /admin, or set ADMIN_SETUP_TOKEN to choose your own)`,
+    'Admin'
+  );
+  return setupTokenCache;
+};
+
+/** 校验初始化令牌（定长比较） */
+export const verifySetupToken = (value: string | undefined): boolean => {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return false;
+  }
+  return safeEqualString(value.trim(), getSetupToken());
+};
+
 /** 会话有效期（分钟），可通过 ADMIN_SESSION_TTL 调整 */
 export const getSessionTtlMinutes = (): number => {
   const raw = Number(process.env.ADMIN_SESSION_TTL);
   if (Number.isFinite(raw) && raw > 0) {
-    return Math.min(Math.floor(raw), 60 * 24 * 30);
+    return Math.min(Math.floor(raw), MAX_SESSION_TTL_MINUTES);
   }
   return DEFAULT_SESSION_TTL_MINUTES;
 };
@@ -355,27 +396,33 @@ const isSecureRequest = (c: Context): boolean => {
 
 /** 写入会话 Cookie */
 export const setSessionCookie = (c: Context, token: string, expiresAt: number): void => {
-  setCookie(c, ADMIN_SESSION_COOKIE, token, {
+  const secure = isSecureRequest(c);
+  setCookie(c, secure ? ADMIN_SESSION_COOKIE_HOST : ADMIN_SESSION_COOKIE, token, {
     path: '/',
     httpOnly: true,
     sameSite: 'Strict',
-    secure: isSecureRequest(c),
+    secure,
     expires: new Date(expiresAt),
   });
 };
 
-/** 清除会话 Cookie */
+/** 清除会话 Cookie（同时清理旧名称，便于升级后平滑退出） */
 export const clearSessionCookie = (c: Context): void => {
-  deleteCookie(c, ADMIN_SESSION_COOKIE, {
-    path: '/',
-    sameSite: 'Strict',
-    secure: isSecureRequest(c),
-  });
+  const secure = isSecureRequest(c);
+  for (const name of [ADMIN_SESSION_COOKIE, ADMIN_SESSION_COOKIE_HOST]) {
+    deleteCookie(c, name, {
+      path: '/',
+      sameSite: 'Strict',
+      secure,
+    });
+  }
 };
 
 /** 当前请求是否已登录 */
-export const isAuthenticated = (c: Context): boolean =>
-  verifySessionToken(getCookie(c, ADMIN_SESSION_COOKIE));
+export const isAuthenticated = (c: Context): boolean => {
+  const token = getCookie(c, ADMIN_SESSION_COOKIE_HOST) ?? getCookie(c, ADMIN_SESSION_COOKIE);
+  return verifySessionToken(token);
+};
 
 // ---------------------------------------------------------------------------
 // 登录失败锁定

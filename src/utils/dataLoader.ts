@@ -105,7 +105,7 @@ export function loadServices(): ServiceItem[] {
     const configPath = join(configDir, 'services.json');
 
     if (!existsSync(configDir)) {
-      mkdirSync(configDir, { recursive: true });
+      mkdirSync(configDir, { recursive: true, mode: 0o700 });
     }
 
     if (!existsSync(configPath)) {
@@ -190,7 +190,7 @@ export function loadSiteConfig(): SiteConfig {
     const configPath = join(configDir, 'site.json');
 
     if (!existsSync(configDir)) {
-      mkdirSync(configDir, { recursive: true });
+      mkdirSync(configDir, { recursive: true, mode: 0o700 });
     }
 
     if (!existsSync(configPath)) {
@@ -243,7 +243,7 @@ export function loadMetingSettings(): MetingConfig {
     const configPath = join(configDir, 'meting.json');
 
     if (!existsSync(configDir)) {
-      mkdirSync(configDir, { recursive: true });
+      mkdirSync(configDir, { recursive: true, mode: 0o700 });
     }
 
     if (!existsSync(configPath)) {
@@ -268,6 +268,19 @@ export function loadMetingSettings(): MetingConfig {
     return defaultMetingConfig;
   }
 }
+
+/** 后台只展示 Cookie 是否已配置和末 4 位，避免把完整凭据拼进页面/接口 */
+export interface MetingCookieStatus {
+  cookieConfigured: boolean;
+  cookiePreview: string;
+}
+
+export const getMetingCookieStatus = (
+  settings: MetingConfig = loadMetingSettings()
+): MetingCookieStatus => ({
+  cookieConfigured: Boolean(settings.cookie),
+  cookiePreview: settings.cookie ? `…${settings.cookie.slice(-4)}` : '',
+});
 
 // ---------------------------------------------------------------------------
 // 表情数据（OwO 格式，供 /emoji/owo.json 与 Twikoo / Artalk 等前端使用）
@@ -314,7 +327,7 @@ export function loadEmojiData(): EmojiData {
     const configPath = join(configDir, 'emoji.json');
 
     if (!existsSync(configDir)) {
-      mkdirSync(configDir, { recursive: true });
+      mkdirSync(configDir, { recursive: true, mode: 0o700 });
     }
 
     if (!existsSync(configPath)) {
@@ -378,7 +391,7 @@ const writeJsonFile = (fileName: string, data: unknown): void => {
   const filePath = join(ensureConfigDir(), fileName);
   const tempPath = `${filePath}.tmp`;
 
-  writeFileSync(tempPath, `${JSON.stringify(data, null, 2)}\n`, 'utf-8');
+  writeFileSync(tempPath, `${JSON.stringify(data, null, 2)}\n`, { encoding: 'utf-8', mode: 0o600 });
   renameSync(tempPath, filePath);
 };
 

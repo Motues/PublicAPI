@@ -1,11 +1,12 @@
 import type { Context } from 'hono';
-import { loadEmojiData, loadMetingSettings, loadServices, loadSiteConfig } from '../../utils/dataLoader.js';
+import { getMetingCookieStatus, loadEmojiData, loadServices, loadSiteConfig } from '../../utils/dataLoader.js';
 import { getStats } from '../../utils/middleware/counter.js';
 import {
   canUseSetupPage,
   getLoginLockStatus,
   getPasswordSource,
   getSessionTtlMinutes,
+  getSetupToken,
   isAuthenticated,
   isPasswordFromEnv,
   type PasswordSource,
@@ -242,6 +243,7 @@ const SETUP_SCRIPT = `
 
   const passwordInput = document.getElementById('setup-password');
   const confirmInput = document.getElementById('setup-confirm');
+  const tokenInput = document.getElementById('setup-token');
   const button = document.getElementById('setup-submit');
   const msg = document.getElementById('setup-msg');
 
@@ -252,6 +254,11 @@ const SETUP_SCRIPT = `
       setMsg(msg, '[FAIL] 两次输入的密码不一致', false);
       return;
     }
+    if (tokenInput && tokenInput.value.trim() === '') {
+      setMsg(msg, '[FAIL] 请填写服务端日志中的初始化令牌', false);
+      tokenInput.focus();
+      return;
+    }
 
     button.disabled = true;
     setMsg(msg, '正在保存…', null);
@@ -259,7 +266,11 @@ const SETUP_SCRIPT = `
     try {
       await adminFetch('/setup', {
         method: 'POST',
-        body: { password: passwordInput.value, confirmPassword: confirmInput.value },
+        body: {
+          password: passwordInput.value,
+          confirmPassword: confirmInput.value,
+          setupToken: tokenInput ? tokenInput.value.trim() : '',
+        },
       });
       setMsg(msg, '[OK] 初始化完成，正在进入控制台…', true);
       location.reload();
@@ -429,7 +440,14 @@ const PANEL_SCRIPT = `
   // ---- 音乐设置 ----
   const cookieInput = document.getElementById('meting-cookie');
   if (cookieInput) {
-    cookieInput.value = (boot.meting && boot.meting.cookie) || '';
+    let cookieStatus = boot.meting || {};
+    function updateCookieHint() {
+      cookieInput.value = '';
+      cookieInput.placeholder = cookieStatus.cookieConfigured
+        ? '已配置（' + (cookieStatus.cookiePreview || '****') + '），留空保持不变；粘贴新值会覆盖'
+        : 'MUSIC_U=...; __csrf=...';
+    }
+    updateCookieHint();
 
     const saveMetingButton = document.getElementById('save-meting');
     saveMetingButton.addEventListener('click', async function () {
@@ -437,13 +455,39 @@ const PANEL_SCRIPT = `
       saveMetingButton.disabled = true;
       setMsg(msg, '保存中…', null);
       try {
-        await adminFetch('/config/meting', { method: 'PUT', body: { cookie: cookieInput.value } });
+        const payload = await adminFetch('/config/meting', {
+          method: 'PUT',
+          body: { cookie: cookieInput.value.trim() },
+        });
+        cookieStatus = (payload && payload.data) || {};
+        updateCookieHint();
         setMsg(msg, '[OK] 已保存，音乐缓存已清理', true);
       } catch (error) {
         setMsg(msg, '[FAIL] ' + error.message, false);
       }
       saveMetingButton.disabled = false;
     });
+
+    const clearMetingButton = document.getElementById('clear-meting');
+    if (clearMetingButton) {
+      clearMetingButton.addEventListener('click', async function () {
+        const msg = document.getElementById('meting-msg');
+        clearMetingButton.disabled = true;
+        setMsg(msg, '清除中…', null);
+        try {
+          const payload = await adminFetch('/config/meting', {
+            method: 'PUT',
+            body: { clear: true },
+          });
+          cookieStatus = (payload && payload.data) || {};
+          updateCookieHint();
+          setMsg(msg, '[OK] 已清除网易云 Cookie', true);
+        } catch (error) {
+          setMsg(msg, '[FAIL] ' + error.message, false);
+        }
+        clearMetingButton.disabled = false;
+      });
+    }
   }
 
   // ---- 表情接口设置 ----
@@ -830,12 +874,17 @@ const setupView = (siteName: string): string => `
       <div class="sys-desc">首次使用 · 请设置管理后台密码</div>
     </div>
     <div class="notice">
-      当前未配置任何管理员密码。设置后将写入 <b>data/config/admin.json</b>（scrypt 哈希存储），也可以改为在环境变量中配置。
+      当前未配置任何管理员密码。设置后将写入 <b>data/config/admin.json</b>（scrypt 哈希存储），也可以改为在环境变量中配置。<br>
+      首次初始化需要服务端日志中的 <b>Admin setup token</b>，或在环境变量中设置 <code>ADMIN_SETUP_TOKEN</code>。
     </div>
     <form id="setup-form">
       <div class="field">
+        <label class="stats-label" for="setup-token">初始化令牌</label>
+        <input id="setup-token" type="text" autocomplete="off" spellcheck="false" autofocus>
+      </div>
+      <div class="field">
         <label class="stats-label" for="setup-password">新密码（至少 8 位）</label>
-        <input id="setup-password" type="password" autocomplete="new-password" autofocus>
+        <input id="setup-password" type="password" autocomplete="new-password">
       </div>
       <div class="field">
         <label class="stats-label" for="setup-confirm">确认密码</label>
@@ -1014,9 +1063,10 @@ const panelView = (options: PanelOptions): string => {
       </div>
       <div class="actions">
         <button class="btn primary" type="button" id="save-meting">保存并生效</button>
+        <button class="btn" type="button" id="clear-meting">清除 Cookie</button>
         <span class="msg" id="meting-msg"></span>
       </div>
-      <div class="hint">* 保存后会立即清理音乐接口缓存；Cookie 属于敏感信息，请勿分享该页面。</div>
+      <div class="hint">* 保存后会立即清理音乐接口缓存；Cookie 属于敏感信息，页面只显示末 4 位，留空表示保持原值。</div>
     </div>
   </div>
 
@@ -1138,7 +1188,7 @@ export const adminPage = async (c: Context) => {
         emojiBaseUrl: siteConfig.emojiBaseUrl,
       },
       services: loadServices(),
-      meting: loadMetingSettings(),
+      meting: getMetingCookieStatus(),
       emoji: loadEmojiData(),
       passwordSource,
       passwordFromEnv: isPasswordFromEnv(),
@@ -1149,9 +1199,13 @@ export const adminPage = async (c: Context) => {
   }
 
   if (passwordSource === 'unset') {
-    return canUseSetupPage(c)
-      ? c.html(pageShell(`[SETUP] ${siteName}`, setupView(siteName), SETUP_SCRIPT))
-      : c.html(pageShell(`[SETUP] ${siteName}`, setupBlockedView(siteName), ''));
+    if (canUseSetupPage(c)) {
+      // 确保随机令牌已生成并打印到日志，管理员需要它才能完成初始化
+      getSetupToken();
+      return c.html(pageShell(`[SETUP] ${siteName}`, setupView(siteName), SETUP_SCRIPT));
+    }
+
+    return c.html(pageShell(`[SETUP] ${siteName}`, setupBlockedView(siteName), ''));
   }
 
   return c.html(pageShell(`[ADMIN] ${siteName}`, loginView(siteName, getLoginLockStatus(c).retryAfterSeconds), LOGIN_SCRIPT));
