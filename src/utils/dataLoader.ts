@@ -1,6 +1,7 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { logger } from './logger.js';
+import { atomicWriteFile } from './atomicFile.js';
 import { CONFIG_DIR } from './paths.js';
 import { defaultEmojiData } from './defaultEmoji.js';
 import type { EmojiData, EmojiGroup, EmojiItem, EmojiType } from './defaultEmoji.js';
@@ -389,10 +390,7 @@ const ensureConfigDir = (): string => {
 /** 原子写入 JSON 配置，避免写入中断损坏原文件 */
 const writeJsonFile = (fileName: string, data: unknown): void => {
   const filePath = join(ensureConfigDir(), fileName);
-  const tempPath = `${filePath}.tmp`;
-
-  writeFileSync(tempPath, `${JSON.stringify(data, null, 2)}\n`, { encoding: 'utf-8', mode: 0o600 });
-  renameSync(tempPath, filePath);
+  atomicWriteFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 0o600);
 };
 
 /** 校验并规范化字符串字段 */

@@ -17,6 +17,7 @@ const { saveServices, saveEmojiData, loadServices, getMetingCookieStatus } = awa
 const { createCorsMiddleware } = await import('../src/utils/middleware/cors.ts');
 const { createRateLimitMiddleware } = await import('../src/utils/middleware/rateLimiter.ts');
 const { lruCacheMiddleware } = await import('../src/utils/middleware/lruCache.ts');
+const { absolutizeIcons } = await import('../src/controllers/emojiController.ts');
 const { shutdownStats } = await import('../src/utils/middleware/counter.ts');
 
 test('jsonForScript 转义 </script> 且仍是合法 JSON', () => {
@@ -89,6 +90,18 @@ test('Cookie 状态只返回末 4 位', () => {
   const status = getMetingCookieStatus({ cookie: 'MUSIC_U=abcdefgh' });
   assert.equal(status.cookieConfigured, true);
   assert.equal(status.cookiePreview, '…efgh');
+});
+
+test('文本表情输出转义 HTML', () => {
+  const out = absolutizeIcons({
+    test: {
+      type: 'emoticon',
+      container: [{ icon: '<img src=x onerror=alert(1)>', text: '<b>x</b>' }],
+    },
+  }, 'https://api.example.com');
+
+  assert.equal(out.test!.container[0]!.icon, '&lt;img src=x onerror=alert(1)&gt;');
+  assert.equal(out.test!.container[0]!.text, '&lt;b&gt;x&lt;/b&gt;');
 });
 
 test('createApp 工厂提供健康检查', async () => {

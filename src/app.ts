@@ -1,5 +1,6 @@
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
+import { compress } from 'hono/compress';
 import musicRoutes from './routes/api/music.js';
 import avatarRouter from './routes/api/avatar.js';
 import emojiRouter from './routes/api/emoji.js';
@@ -26,6 +27,9 @@ export const createApp = (): Hono => {
 
   // 全局安全响应头
   app.use('*', securityHeaders);
+
+  // 压缩文本/JSON 响应（LRU 在压缩外层之前缓存未压缩内容）
+  app.use('*', compress());
 
   // 静态资源（表情图片等），目录 public/ 随仓库一起发布
   // serveStatic 会用完整请求路径拼接 root，因此需要先去掉 /static 前缀

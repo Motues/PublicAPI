@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 import type { Context, Next } from 'hono';
@@ -7,6 +7,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { getClientIP } from './ip.js';
 import { config } from './config.js';
+import { atomicWriteFile } from './atomicFile.js';
 import { CONFIG_DIR } from './paths.js';
 import { logger } from './logger.js';
 
@@ -114,10 +115,7 @@ const writeAdminFile = (data: AdminFileConfig): void => {
   }
 
   const configPath = getAdminConfigPath();
-  const tempPath = `${configPath}.tmp`;
-
-  writeFileSync(tempPath, `${JSON.stringify(data, null, 2)}\n`, { encoding: 'utf-8', mode: 0o600 });
-  renameSync(tempPath, configPath);
+  atomicWriteFile(configPath, `${JSON.stringify(data, null, 2)}\n`, 0o600);
 
   adminFileCache = data;
   adminFileCacheTime = Date.now();

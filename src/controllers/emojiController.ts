@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import { loadEmojiData, loadSiteConfig } from '../utils/dataLoader.js';
 import type { EmojiData } from '../utils/defaultEmoji.js';
 import { config } from '../utils/config.js';
+import { escapeHtml } from '../utils/html.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -102,17 +103,27 @@ export const absolutizeIcons = (data: EmojiData, baseUrl: string): EmojiData => 
   const result: EmojiData = {};
 
   for (const [name, group] of Object.entries(data)) {
-    result[name] = group.type === 'image'
-      ? {
-          type: group.type,
-          container: group.container.map((item) => ({
-            icon: item.icon.replace(INNER_IMG_SRC, (matched, prefix: string, src: string, suffix: string) =>
-              src.startsWith('//') ? matched : `${prefix}${baseUrl}${src}${suffix}`
-            ),
-            text: item.text,
-          })),
-        }
-      : group;
+    if (group.type === 'image') {
+      result[name] = {
+        type: group.type,
+        container: group.container.map((item) => ({
+          icon: item.icon.replace(INNER_IMG_SRC, (matched, prefix: string, src: string, suffix: string) =>
+            src.startsWith('//') ? matched : `${prefix}${baseUrl}${src}${suffix}`
+          ),
+          text: escapeHtml(item.text),
+        })),
+      };
+      continue;
+    }
+
+    // 文本/emoji 由使用方当 HTML 插入，输出前转义，避免配置或上游数据里的 HTML 被执行
+    result[name] = {
+      type: group.type,
+      container: group.container.map((item) => ({
+        icon: escapeHtml(item.icon),
+        text: escapeHtml(item.text),
+      })),
+    };
   }
 
   return result;
