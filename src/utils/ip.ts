@@ -1,40 +1,82 @@
 import type { Context } from 'hono';
 import { getConnInfo } from '@hono/node-server/conninfo'
+import { isIP } from 'node:net';
+import { config } from './config.js';
+
+/** 去掉 IPv4-mapped IPv6 前缀，便于和可信代理列表比较 */
+const canonicalIP = (ip: string): string =>
+  ip.toLowerCase().startsWith('::ffff:') ? ip.slice(7) : ip;
+
+/** 取得 TCP 连接的对端地址；非 Node server 环境（如单元测试）返回空字符串 */
+export const getSocketIP = (c: Context): string => {
+  try {
+    return getConnInfo(c).remote.address || '';
+  } catch {
+    return '';
+  }
+};
+
+const isTrustedProxy = (ip: string): boolean =>
+  config.trustedProxies.some((trusted) => canonicalIP(trusted) === canonicalIP(ip));
 
 /**
- * 获取客户端真实IP地址
- * 优先级: cf-connecting-ip > x-real-ip > x-forwarded-for > ctx.ip
- * @param c Hono上下文对象
- * @returns 客户端IP地址
+ * 获取客户端真实 IP。
+ *
+ * 默认只返回 socket 地址，忽略所有客户端可伪造的转发头；
+ * 只有显式开启 TRUST_PROXY（并可选配置 TRUSTED_PROXIES）时才解析 X-Forwarded-For。
+ * 这样限流、后台登录锁定和日志不会因为伪造请求头而被绕过。
  */
 export const getClientIP = (c: Context): string => {
-  // Cloudflare CDN IP
-  const cfConnectingIP = c.req.header('cf-connecting-ip');
-  if (cfConnectingIP) {
-    return cfConnectingIP;
+  const socketIP = getSocketIP(c);
+  const fallback = socketIP || 'Unknown';
+
+  if (!config.trustProxy) {
+    return fallback;
   }
 
-  // Nginx反向代理IP
-  const xRealIP = c.req.header('x-real-ip');
-  if (xRealIP) {
-    return xRealIP;
+  // 配置了可信代理列表时，只接受来自这些代理的连接
+  if (config.trustedProxies.length > 0 && (!socketIP || !isTrustedProxy(socketIP))) {
+    return fallback;
   }
 
-  // 负载均衡或代理转发的IP列表，取第一个
-  const xForwardedFor = c.req.header('x-forwarded-for');
-  if (xForwardedFor) {
-    const ip = xForwardedFor.split(',')[0]?.trim();
-    if (ip) {
-      return ip;
+  if (config.trustCloudflare) {
+    const cloudflareIP = c.req.header('cf-connecting-ip')?.trim();
+    if (cloudflareIP && isIP(cloudflareIP) !== 0) {
+      return cloudflareIP;
     }
   }
 
-  // 默认使用 Hono 提供的 IP；非 Node server 环境（如单元测试）下可能不可用
-  try {
-    return getConnInfo(c).remote.address || 'Unknown';
-  } catch {
-    return 'Unknown';
+  const realIP = c.req.header('x-real-ip')?.split(',')[0]?.trim();
+  if (realIP && isIP(realIP) !== 0) {
+    return realIP;
   }
+
+  const forwardedFor = c.req.header('x-forwarded-for');
+  if (forwardedFor) {
+    const chain = forwardedFor
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item !== '' && isIP(item) !== 0);
+
+    if (chain.length > 0) {
+      if (config.trustedProxies.length === 0) {
+        // 未配置代理列表时信任整条链，取最左侧（原始客户端）
+        return chain[0]!;
+      }
+
+      // 从右向左跳过可信代理，第一个非可信地址就是客户端
+      for (let index = chain.length - 1; index >= 0; index -= 1) {
+        const candidate = chain[index]!;
+        if (!isTrustedProxy(candidate)) {
+          return candidate;
+        }
+      }
+
+      return chain[0]!;
+    }
+  }
+
+  return fallback;
 };
 
 /**
@@ -44,19 +86,10 @@ export const getClientIP = (c: Context): string => {
  */
 export function getRequestOrigin(c: Context): string {
   const rawReferer = c.req.header('referer') || c.req.header('origin');
-  
+
   if (!rawReferer) {
     return 'Direct Access'
   }
 
   return rawReferer;
-
-
-  // try {
-  //   // 自动剥离请求体、子路径及末尾斜杠
-  //   return new URL(rawReferer).origin
-  // } catch {
-  //   // 恶意攻击或非标准 URL 时安全回退
-  //   return rawReferer
-  // }
 }

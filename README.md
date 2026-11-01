@@ -65,15 +65,21 @@ pnpm start
 | 变量 | 说明 | 默认值 |
 | --- | --- | --- |
 | `PORT` | 服务监听端口 | `3000` |
-| `ALLOW_ORIGIN` | 允许跨域的源，多个用逗号分隔，留空表示允许所有 | 空 |
+| `ALLOW_ORIGIN` | 公开接口允许跨域的源，多个用逗号分隔；留空或 `*` 表示允许所有，配置了但全部非法时按拒绝处理。公开接口不使用 Cookie | 空 |
 | `MUSIC` | 设置为 `open` 启用音乐 API | 关闭 |
 | `AVATAR` | 设置为 `open` 启用头像 API | 关闭 |
 | `EMOJI` | 设置为 `open` 启用表情 API | 关闭 |
+| `TRUST_PROXY` | 是否信任反向代理传来的客户端 IP 头（`X-Forwarded-For` / `X-Real-IP`）。默认关闭；直接暴露服务时不要开启 | 关闭 |
+| `TRUSTED_PROXIES` | 可信代理地址，多个用逗号分隔（如 `127.0.0.1`）；配置后只接受这些代理的连接 | 空 |
+| `TRUST_CLOUDFLARE` | 是否信任 `CF-Connecting-IP`（仅使用 Cloudflare 时开启） | 关闭 |
+| `PUBLIC_ORIGIN` | 对外访问地址（如 `https://api.example.com`），用于生成绝对地址和后台同源校验；反向代理改写 Host 时建议设置 | 空 |
 | `ADMIN_PASSWORD` | 管理后台密码（明文），优先级最高 | 未设置 |
 | `ADMIN_PASSWORD_HASH` | 管理后台密码的 scrypt 哈希，格式 `scrypt$salt$hash` | 未设置 |
 | `ADMIN_SESSION_SECRET` | 管理后台会话签名密钥，不设置则自动生成并保存到 `data/config/admin.json` | 自动生成 |
 | `ADMIN_SESSION_TTL` | 管理后台会话有效期（分钟） | `120` |
 | `ADMIN_SETUP_REMOTE` | 设置为 `true` 时允许从公网完成首次密码初始化 | 关闭 |
+
+> 部署在 Nginx / Caddy / Cloudflare 等反向代理之后时，必须设置 `TRUST_PROXY=true`，否则所有请求都会按代理的 socket IP 共享限流配额；同时建议设置 `TRUSTED_PROXIES`（例如 `127.0.0.1`）和 `PUBLIC_ORIGIN`。直接暴露到公网时保持 `TRUST_PROXY` 关闭，任何客户端都无法通过伪造 `X-Forwarded-For` 绕过限流或登录锁定。
 
 ## 管理后台
 

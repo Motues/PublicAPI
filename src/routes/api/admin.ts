@@ -32,6 +32,7 @@ import {
 } from '../../utils/adminAuth.js';
 import { getAnalytics, getStats } from '../../utils/middleware/counter.js';
 import { clearResponseCache } from '../../utils/middleware/lruCache.js';
+import { createRateLimitMiddleware } from '../../utils/middleware/rateLimiter.js';
 import { clearMusicInfoCache } from '../../controllers/musicController.js';
 import { getSystemInfo } from '../../utils/systemInfo.js';
 import { logger } from '../../utils/logger.js';
@@ -51,6 +52,20 @@ const makeBodyLimit = (maxSize: number) => bodyLimit({
 
 const defaultBodyLimit = makeBodyLimit(1 * 1024 * 1024);
 const emojiBodyLimit = makeBodyLimit(12 * 1024 * 1024);
+
+// 登录/初始化做全局限流（不按 IP），避免伪造 XFF 后无限尝试，也防止 scrypt 打满线程池
+const loginRateLimit = createRateLimitMiddleware({
+  maxRequests: 30,
+  windowMs: 60 * 1000,
+  scope: 'admin-login',
+  keyGenerator: () => 'global',
+});
+const setupRateLimit = createRateLimitMiddleware({
+  maxRequests: 10,
+  windowMs: 60 * 1000,
+  scope: 'admin-setup',
+  keyGenerator: () => 'global',
+});
 
 // 后台接口一律限制请求体，避免未授权请求用超大 JSON 打满内存；
 // 表情配置允许 12MB（5000 个表情 × 单项 2KB 的理论上限）。
@@ -125,7 +140,7 @@ adminApi.get('/session', (c) => {
 });
 
 /** 首次初始化管理员密码（仅在完全未配置密码时可用） */
-adminApi.post('/setup', async (c) => {
+adminApi.post('/setup', setupRateLimit, async (c) => {
   if (getPasswordSource() !== 'unset') {
     return c.json({ error: '管理员密码已配置，无法重复初始化' }, 409);
   }
@@ -163,7 +178,7 @@ adminApi.post('/setup', async (c) => {
 });
 
 /** 登录 */
-adminApi.post('/login', async (c) => {
+adminApi.post('/login', loginRateLimit, async (c) => {
   const passwordSource = getPasswordSource();
   if (passwordSource === 'unset') {
     return c.json({
@@ -185,7 +200,7 @@ adminApi.post('/login', async (c) => {
   const body = await readJsonBody(c);
   const password = typeof body.password === 'string' ? body.password : '';
 
-  if (!verifyAdminPassword(password)) {
+  if (!(await verifyAdminPassword(password))) {
     const after = recordLoginFailure(c);
     logger.warn('Failed admin login attempt', 'Admin');
     return c.json({
@@ -223,7 +238,7 @@ adminApi.post('/password', requireAdminAuth, async (c) => {
   const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
   const confirmPassword = typeof body.confirmPassword === 'string' ? body.confirmPassword : '';
 
-  if (!verifyAdminPassword(currentPassword)) {
+  if (!(await verifyAdminPassword(currentPassword))) {
     return c.json({ error: '当前密码不正确' }, 400);
   }
 
@@ -234,7 +249,7 @@ adminApi.post('/password', requireAdminAuth, async (c) => {
   if (newPassword !== confirmPassword) {
     return c.json({ error: '两次输入的新密码不一致' }, 400);
   }
-  if (verifyAdminPassword(newPassword)) {
+  if (await verifyAdminPassword(newPassword)) {
     return c.json({ error: '新密码不能与当前密码相同' }, 400);
   }
 

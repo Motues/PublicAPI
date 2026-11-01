@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
@@ -6,6 +6,7 @@ import type { Context, Next } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { getClientIP } from './ip.js';
+import { config } from './config.js';
 import { logger } from './logger.js';
 
 /**
@@ -50,6 +51,8 @@ const ADMIN_FILE_CACHE_MS = 5000;
 
 let adminFileCache: AdminFileConfig | null = null;
 let adminFileCacheTime = 0;
+/** admin.json 存在但读取/解析失败：按“已配置”处理，避免 fail-open 重新开放初始化 */
+let adminFileBroken = false;
 
 /** 写入失败时使用的进程内会话密钥，保证同一进程内会话稳定 */
 let ephemeralSecret: string | null = null;
@@ -66,13 +69,33 @@ const readAdminFile = (): AdminFileConfig => {
   try {
     if (!existsSync(configPath)) {
       adminFileCache = {};
+      adminFileBroken = false;
     } else {
-      const parsed = JSON.parse(readFileSync(configPath, 'utf-8')) as AdminFileConfig;
-      adminFileCache = parsed && typeof parsed === 'object' ? parsed : {};
+      const parsed = JSON.parse(readFileSync(configPath, 'utf-8')) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const record = parsed as Record<string, unknown>;
+        const normalized: AdminFileConfig = {};
+        adminFileBroken = false;
+
+        for (const field of ['passwordHash', 'password', 'sessionSecret'] as const) {
+          const value = record[field];
+          if (typeof value === 'string') {
+            normalized[field] = value;
+          } else if (value !== undefined) {
+            adminFileBroken = true;
+          }
+        }
+
+        adminFileCache = normalized;
+      } else {
+        adminFileCache = {};
+        adminFileBroken = true;
+      }
     }
   } catch (error) {
-    logger.error('Failed to read admin config:', error, 'Admin');
+    logger.error('Failed to read admin config, setup/login will be blocked until it is fixed:', error, 'Admin');
     adminFileCache = {};
+    adminFileBroken = true;
   }
 
   adminFileCacheTime = now;
@@ -93,6 +116,7 @@ const writeAdminFile = (data: AdminFileConfig): void => {
 
   adminFileCache = data;
   adminFileCacheTime = Date.now();
+  adminFileBroken = false;
 };
 
 // ---------------------------------------------------------------------------
@@ -106,7 +130,19 @@ export const hashPassword = (password: string): string => {
   return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`;
 };
 
-const verifyPasswordHash = (password: string, stored: string): boolean => {
+/** 异步 scrypt，避免登录校验阻塞事件循环 */
+const scryptAsync = (password: string, salt: Buffer, keyLength: number): Promise<Buffer> =>
+  new Promise((resolve, reject) => {
+    scrypt(password, salt, keyLength, (error, derivedKey) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(derivedKey);
+      }
+    });
+  });
+
+const verifyPasswordHash = async (password: string, stored: string): Promise<boolean> => {
   const parts = stored.split('$');
   if (parts.length !== 3 || parts[0] !== 'scrypt') {
     return false;
@@ -119,7 +155,7 @@ const verifyPasswordHash = (password: string, stored: string): boolean => {
   }
 
   try {
-    const actual = scryptSync(password, salt, expected.length);
+    const actual = await scryptAsync(password, salt, expected.length);
     return timingSafeEqual(actual, expected);
   } catch {
     return false;
@@ -146,6 +182,10 @@ export const getPasswordSource = (): PasswordSource => {
   }
 
   const file = readAdminFile();
+  if (adminFileBroken) {
+    // 文件损坏/不可读时按“已配置”处理，禁止重新走初始化
+    return 'file';
+  }
   if (file.passwordHash || file.password) {
     return 'file';
   }
@@ -160,7 +200,7 @@ export const isPasswordFromEnv = (): boolean => {
 };
 
 /** 校验管理员密码（明文比较时忽略首尾空白） */
-export const verifyAdminPassword = (password: string): boolean => {
+export const verifyAdminPassword = async (password: string): Promise<boolean> => {
   if (typeof password !== 'string' || password.trim() === '') {
     return false;
   }
@@ -173,6 +213,10 @@ export const verifyAdminPassword = (password: string): boolean => {
 
   if (source === 'env-hash') {
     return verifyPasswordHash(password, (process.env.ADMIN_PASSWORD_HASH ?? '').trim());
+  }
+
+  if (adminFileBroken) {
+    return false;
   }
 
   const file = readAdminFile();
@@ -293,6 +337,10 @@ export const verifySessionToken = (token: string | undefined): boolean => {
 };
 
 const isSecureRequest = (c: Context): boolean => {
+  if (config.publicOrigin) {
+    return new URL(config.publicOrigin).protocol === 'https:';
+  }
+
   const forwardedProto = c.req.header('x-forwarded-proto');
   if (forwardedProto) {
     return forwardedProto.split(',')[0]?.trim().toLowerCase() === 'https';
@@ -340,6 +388,20 @@ interface LoginAttempt {
 }
 
 const loginAttempts = new Map<string, LoginAttempt>();
+
+/** 登录失败记录的容量上限，防止伪造 IP 把 Map 撑爆 */
+const MAX_LOGIN_ATTEMPT_ENTRIES = 10_000;
+
+const pruneLoginAttempts = (now: number = Date.now()): void => {
+  for (const [ip, entry] of loginAttempts.entries()) {
+    if (entry.lockedUntil <= now && now - entry.lastFailure > LOGIN_LOCK_MS) {
+      loginAttempts.delete(ip);
+    }
+  }
+};
+
+const loginAttemptsCleanup = setInterval(pruneLoginAttempts, 5 * 60 * 1000);
+loginAttemptsCleanup.unref?.();
 
 export interface LoginLockStatus {
   locked: boolean;
@@ -394,7 +456,17 @@ export const recordLoginFailure = (c: Context): LoginLockStatus => {
     logger.warn(`Admin login locked for ${ip} after ${entry.failures} failed attempts`, 'Admin');
   }
 
+  loginAttempts.delete(ip);
   loginAttempts.set(ip, entry);
+
+  // Map 超过上限时淘汰最早写入的其他 IP
+  if (loginAttempts.size > MAX_LOGIN_ATTEMPT_ENTRIES) {
+    const oldest = loginAttempts.keys().next().value;
+    if (oldest !== undefined && oldest !== ip) {
+      loginAttempts.delete(oldest);
+    }
+  }
+
   return getLoginLockStatus(c);
 };
 
@@ -479,6 +551,32 @@ export const canUseSetupPage = (c: Context): boolean => {
 };
 
 /**
+ * 规范化 Host 头：只接受主机名/IP + 可选端口，拒绝路径、凭据和特殊字符。
+ */
+const normalizeHostHeader = (value: string | undefined): string => {
+  const raw = (value ?? '').split(',')[0]?.trim();
+  if (raw === '' || /[\u0000-\u0020"'<>\\/?#@]/.test(raw)) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(`http://${raw}`);
+    if (
+      parsed.username !== '' ||
+      parsed.password !== '' ||
+      parsed.pathname !== '/' ||
+      parsed.search !== '' ||
+      parsed.hash !== ''
+    ) {
+      return '';
+    }
+    return parsed.host.toLowerCase();
+  } catch {
+    return '';
+  }
+};
+
+/**
  * 管理接口来源校验中间件：拒绝跨站写操作，并要求自定义请求头
  */
 export const requireSameOrigin = async (c: Context, next: Next) => {
@@ -487,15 +585,35 @@ export const requireSameOrigin = async (c: Context, next: Next) => {
   if (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE') {
     const origin = c.req.header('origin');
 
-    if (origin && origin !== 'null') {
+    if (origin === 'null') {
+      logger.warn('Rejected admin request with null origin', 'Admin');
+      return c.json({ error: '跨站请求已被拒绝' }, 403);
+    }
+
+    if (origin) {
       let originHost = '';
       try {
-        originHost = new URL(origin).host;
+        originHost = new URL(origin).host.toLowerCase();
       } catch {
         originHost = '';
       }
 
-      if (originHost === '' || originHost !== c.req.header('host')) {
+      const expectedHosts = new Set<string>();
+      if (config.publicOrigin) {
+        try {
+          expectedHosts.add(new URL(config.publicOrigin).host.toLowerCase());
+        } catch {
+          // publicOrigin 已在 config 中校验，这里忽略异常
+        }
+      }
+      for (const candidate of [c.req.header('x-forwarded-host'), c.req.header('host')]) {
+        const host = normalizeHostHeader(candidate);
+        if (host) {
+          expectedHosts.add(host);
+        }
+      }
+
+      if (originHost === '' || !expectedHosts.has(originHost)) {
         logger.warn(`Rejected admin request from cross origin: ${origin}`, 'Admin');
         return c.json({ error: '跨站请求已被拒绝' }, 403);
       }

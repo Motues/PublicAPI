@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import { loadEmojiData, loadSiteConfig } from '../utils/dataLoader.js';
 import type { EmojiData } from '../utils/defaultEmoji.js';
+import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -62,6 +63,11 @@ export const resolveBaseUrl = (c: Context): string => {
   const configured = loadSiteConfig().emojiBaseUrl;
   if (configured) {
     return configured;
+  }
+
+  // 显式配置的对外地址优先于任何请求头
+  if (config.publicOrigin) {
+    return config.publicOrigin;
   }
 
   const requestUrl = new URL(c.req.url);

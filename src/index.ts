@@ -21,9 +21,6 @@ const app = new Hono()
 // 全局安全响应头
 app.use('*', securityHeaders);
 
-// 全局 CORS 中间件
-app.use('*', createCorsMiddleware(config.allowedOrigins));
-
 // 静态资源（表情图片等），目录 public/ 随仓库一起发布
 // serveStatic 会用完整请求路径拼接 root，因此需要先去掉 /static 前缀
 app.use('/static/*', async (c, next) => {
@@ -35,10 +32,22 @@ app.use('/static/*', serveStatic({
   rewriteRequestPath: (path) => path.replace(/^\/static/, ''),
 }));
 
+// 公开接口才挂 CORS；后台同源访问，不暴露跨域读能力
+const publicCors = createCorsMiddleware(config.allowedOrigins, config.allowAllOrigins);
+
 // 接口限制流量
-if(config.musicOpen) app.use('/music/*', createRateLimitMiddleware({ maxRequests: 600, windowMs: 60 * 1000 }));
-if(config.avatarOpen) app.use('/avatar/*', createRateLimitMiddleware({ maxRequests: 600, windowMs: 60 * 1000 }));
-if(config.emojiOpen) app.use('/emoji/*', createRateLimitMiddleware({ maxRequests: 600, windowMs: 60 * 1000 }));
+if(config.musicOpen) {
+  app.use('/music/*', publicCors);
+  app.use('/music/*', createRateLimitMiddleware({ maxRequests: 600, windowMs: 60 * 1000, scope: 'music' }));
+}
+if(config.avatarOpen) {
+  app.use('/avatar/*', publicCors);
+  app.use('/avatar/*', createRateLimitMiddleware({ maxRequests: 600, windowMs: 60 * 1000, scope: 'avatar' }));
+}
+if(config.emojiOpen) {
+  app.use('/emoji/*', publicCors);
+  app.use('/emoji/*', createRateLimitMiddleware({ maxRequests: 600, windowMs: 60 * 1000, scope: 'emoji' }));
+}
 
 // 接口调用量统计
 if(config.musicOpen) app.use('/music/*', counterMiddleware);
