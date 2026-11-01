@@ -29,8 +29,12 @@ export const getClientIP = (c: Context): string => {
     }
   }
 
-  // 默认使用Hono提供的IP
-  return getConnInfo(c).remote.address || 'Unknown';
+  // 默认使用 Hono 提供的 IP；非 Node server 环境（如单元测试）下可能不可用
+  try {
+    return getConnInfo(c).remote.address || 'Unknown';
+  } catch {
+    return 'Unknown';
+  }
 };
 
 /**

@@ -2,7 +2,7 @@ import { getStats } from '../../utils/middleware/counter.js';
 import { config } from '../../utils/config.js';
 import { loadServices, loadSiteConfig } from '../../utils/dataLoader.js';
 import { getSystemInfo } from '../../utils/systemInfo.js';
-import { escapeHtml } from '../../utils/html.js';
+import { escapeHtml, jsonForScript } from '../../utils/html.js';
 
 const osName = getSystemInfo().osName || 'Unknown OS';
 export const indexPage = async (c) => {
@@ -18,7 +18,7 @@ export const indexPage = async (c) => {
   const serviceCards = services.map(service => {
     const isOnline = service.status === 'open';
     return `
-      <a class="api-item" href="${escapeHtml(service.url)}" target="_blank">
+      <a class="api-item" href="${escapeHtml(service.url)}" target="_blank" rel="noopener noreferrer">
         <span>${escapeHtml(service.name)}</span>
         <span class="status-dot ${isOnline ? 'on' : 'off'}"></span>
       </a>`;
@@ -117,7 +117,7 @@ export const indexPage = async (c) => {
               <div class="sys-title">${siteName}</div>
               <div class="sys-desc"><span id="typewriter" class="typewriter-text"></span></div>
           </div>
-          <div>操作系统: <span style="float:right">${osName}</span></div>
+          <div>操作系统: <span style="float:right">${escapeHtml(osName)}</span></div>
           <div>运行框架: <span style="float:right">Node.js / Hono</span></div>
           <div>系统时间: <span style="float:right">${currentTime}</span></div>
           <div>在线状态: <span style="float:right; color: var(--success-color);">[STATUS OK]</span></div>
@@ -156,7 +156,7 @@ export const indexPage = async (c) => {
         </div>
 
         <div class="footer">
-          © ${currentYear} <a href="https://github.com/Motues/PublicAPI" target="_blank">Public API</a>
+          © ${currentYear} <a href="https://github.com/Motues/PublicAPI" target="_blank" rel="noopener noreferrer">Public API</a>
           <br>
           <span style="opacity: 0.8; margin-top: 8px; display: inline-block;">
             ${siteFooter}
@@ -165,7 +165,7 @@ export const indexPage = async (c) => {
       </div>
 
       <script>
-        const descriptions = ${JSON.stringify(siteDescriptions)};
+        const descriptions = ${jsonForScript(siteDescriptions)};
 
         (function() {
           const element = document.getElementById('typewriter');

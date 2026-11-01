@@ -72,7 +72,7 @@ export default class NeteaseProvider extends BaseProvider {
     const cookieString = this._stringifyCookie(finalCookies);
 
     return {
-      'Referer': 'music.163.com',
+      'Referer': 'https://music.163.com/',
       'Cookie': cookieString,
       'User-Agent': 'Mozilla/5.0 (Linux; Android 11; M2007J3SC Build/RKQ1.200826.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/77.0.3865.120 MQQBrowser/6.2 TBS/045714 Mobile Safari/537.36 NeteaseMusic/8.7.01',
       'Accept': '*/*',
@@ -88,7 +88,7 @@ export default class NeteaseProvider extends BaseProvider {
   search(keyword: string, option: SearchOption = {}): ApiConfig {
     return {
       method: 'POST',
-      url: 'http://music.163.com/api/cloudsearch/pc',
+      url: 'https://music.163.com/api/cloudsearch/pc',
       body: {
         s: keyword,
         type: option.type || 1,
@@ -107,7 +107,7 @@ export default class NeteaseProvider extends BaseProvider {
   song(id: string): ApiConfig {
     return {
       method: 'POST',
-      url: 'http://music.163.com/api/v3/song/detail/',
+      url: 'https://music.163.com/api/v3/song/detail/',
       body: {
         c: `[{"id":${id},"v":0}]`
       },
@@ -122,7 +122,7 @@ export default class NeteaseProvider extends BaseProvider {
   album(id: string): ApiConfig {
     return {
       method: 'POST',
-      url: `http://music.163.com/api/v1/album/${id}`,
+      url: `https://music.163.com/api/v1/album/${id}`,
       body: {
         total: 'true',
         offset: '0',
@@ -142,7 +142,7 @@ export default class NeteaseProvider extends BaseProvider {
   artist(id: string, limit: number = 50): ApiConfig {
     return {
       method: 'POST',
-      url: `http://music.163.com/api/v1/artist/${id}`,
+      url: `https://music.163.com/api/v1/artist/${id}`,
       body: {
         ext: 'true',
         private_cloud: 'true',
@@ -160,7 +160,7 @@ export default class NeteaseProvider extends BaseProvider {
   playlist(id: string): ApiConfig {
     return {
       method: 'POST',
-      url: 'http://music.163.com/api/v6/playlist/detail',
+      url: 'https://music.163.com/api/v6/playlist/detail',
       body: {
         s: '0',
         id: id,
@@ -178,7 +178,7 @@ export default class NeteaseProvider extends BaseProvider {
   url(id: string, br: number = 320): ApiConfig {
     return {
       method: 'POST',
-      url: 'http://music.163.com/api/song/enhance/player/url',
+      url: 'https://music.163.com/api/song/enhance/player/url',
       body: {
         ids: [id],
         br: br * 1000
@@ -194,7 +194,7 @@ export default class NeteaseProvider extends BaseProvider {
   lyric(id: string): ApiConfig {
     return {
       method: 'POST',
-      url: 'http://music.163.com/api/song/lyric',
+      url: 'https://music.163.com/api/song/lyric',
       body: {
         id: id,
         os: 'linux',

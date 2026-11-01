@@ -8,10 +8,87 @@ export type { EmojiData, EmojiGroup, EmojiItem, EmojiType } from './defaultEmoji
 
 const CACHE_DURATION = 5000; // 5秒缓存
 
+const LIMITS = {
+  siteName: 100,
+  descriptionItem: 200,
+  descriptionCount: 50,
+  footer: 300,
+  emojiBaseUrl: 500,
+  serviceCount: 100,
+  serviceName: 100,
+  serviceUrl: 500,
+  cookie: 8000,
+  emojiGroupCount: 50,
+  emojiGroupName: 50,
+  emojiItemCount: 1000, // 单个分组的表情数量
+  emojiTotalCount: 5000, // 全部分组的表情数量
+  emojiIcon: 2000,
+  emojiText: 200,
+} as const;
+
+/** 不允许作为表情分组名的对象保留字，避免原型污染/覆盖方法 */
+const RESERVED_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
 export interface ServiceItem {
   name: string;
   url: string;
   status: 'open' | 'closed';
+}
+
+/** 链接是否只使用 http(s) 或站内绝对路径（不依赖后台保存校验） */
+function isSafeServiceUrl(url: string): boolean {
+  if (!url || url.includes('\\') || /[\u0000-\u001f\u007f]/.test(url)) {
+    return false;
+  }
+  if (url.startsWith('/') && !url.startsWith('//')) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      parsed.username === '' &&
+      parsed.password === ''
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 宽松解析 services.json：手工编辑或旧版本留下来的坏数据不应该让整页崩掉，
+ * 非法条目跳过并记录日志，合法条目继续展示。
+ */
+function normalizeServices(input: unknown): ServiceItem[] {
+  if (!Array.isArray(input)) {
+    logger.warn('services.json is not an array, treated as empty', 'Config');
+    return [];
+  }
+
+  const services: ServiceItem[] = [];
+  input.slice(0, LIMITS.serviceCount).forEach((raw, index) => {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      logger.warn(`Skipped invalid service entry [${index}]: not an object`, 'Config');
+      return;
+    }
+
+    const item = raw as Record<string, unknown>;
+    const name = typeof item.name === 'string' ? item.name.trim() : '';
+    const url = typeof item.url === 'string' ? item.url.trim() : '';
+    if (!name || !url || !isSafeServiceUrl(url)) {
+      logger.warn(`Skipped invalid service entry [${index}]: ${JSON.stringify({ name, url })}`, 'Config');
+      return;
+    }
+
+    services.push({
+      name: name.slice(0, LIMITS.serviceName),
+      url: url.slice(0, LIMITS.serviceUrl),
+      status: item.status === 'open' ? 'open' : 'closed',
+    });
+  });
+
+  return services;
 }
 
 let serviceCache: ServiceItem[] | null = null;
@@ -38,7 +115,7 @@ export function loadServices(): ServiceItem[] {
     }
 
     const fileContent = readFileSync(configPath, 'utf-8');
-    const services: ServiceItem[] = JSON.parse(fileContent);
+    const services = normalizeServices(JSON.parse(fileContent));
 
     serviceCache = services;
     lastLoadTime_list = now;
@@ -68,6 +145,39 @@ const defaultConfig: SiteConfig = {
   emojiBaseUrl: ''
 };
 
+/** 读取时做类型收敛，避免手工编辑/损坏的配置把非字符串拼进 HTML */
+const normalizeText = (value: unknown, fallback: string, maxLength: number): string => {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  return trimmed === '' ? fallback : trimmed.slice(0, maxLength);
+};
+
+const normalizeDescription = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return defaultConfig.description;
+  }
+
+  const description = value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim().slice(0, LIMITS.descriptionItem))
+    .filter((item) => item !== '')
+    .slice(0, LIMITS.descriptionCount);
+
+  return description.length > 0 ? description : defaultConfig.description;
+};
+
+const normalizeSiteConfig = (value: unknown): SiteConfig => {
+  const config = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  return {
+    siteName: normalizeText(config.siteName, defaultConfig.siteName, LIMITS.siteName),
+    description: normalizeDescription(config.description),
+    footer: normalizeText(config.footer, defaultConfig.footer, LIMITS.footer),
+    emojiBaseUrl: readEmojiBaseUrl(config.emojiBaseUrl),
+  };
+};
+
 export function loadSiteConfig(): SiteConfig {
   const now = Date.now();
 
@@ -92,14 +202,7 @@ export function loadSiteConfig(): SiteConfig {
     }
 
     const fileContent = readFileSync(configPath, 'utf-8');
-    const config: SiteConfig = JSON.parse(fileContent);
-
-    siteConfigCache = {
-      siteName: config.siteName || defaultConfig.siteName,
-      description: Array.isArray(config.description) ? config.description : defaultConfig.description,
-      footer: config.footer || defaultConfig.footer,
-      emojiBaseUrl: readEmojiBaseUrl(config.emojiBaseUrl)
-    };
+    siteConfigCache = normalizeSiteConfig(JSON.parse(fileContent));
     lastLoadTime_site = now;
 
     return siteConfigCache;
@@ -118,6 +221,14 @@ let lastLoadTime_meting: number = 0;
 
 const defaultMetingConfig: MetingConfig = {
   cookie: ''
+};
+
+/** 读取时收敛为单行字符串，避免配置文件里混入换行/非字符串 */
+const normalizeCookie = (value: unknown): string => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.replace(/[\r\n]+/g, ' ').trim().slice(0, LIMITS.cookie);
 };
 
 export function loadMetingSettings(): MetingConfig {
@@ -144,10 +255,10 @@ export function loadMetingSettings(): MetingConfig {
     }
 
     const fileContent = readFileSync(configPath, 'utf-8');
-    const config: MetingConfig = JSON.parse(fileContent);
+    const config = JSON.parse(fileContent) as Record<string, unknown>;
 
     metingCookieCache = {
-      cookie: config.cookie || ''
+      cookie: normalizeCookie(config.cookie)
     };
     lastLoadTime_meting = now;
 
@@ -253,24 +364,6 @@ export class ConfigValidationError extends Error {
   }
 }
 
-const LIMITS = {
-  siteName: 100,
-  descriptionItem: 200,
-  descriptionCount: 50,
-  footer: 300,
-  emojiBaseUrl: 500,
-  serviceCount: 100,
-  serviceName: 100,
-  serviceUrl: 500,
-  cookie: 8000,
-  emojiGroupCount: 50,
-  emojiGroupName: 50,
-  emojiItemCount: 1000, // 单个分组的表情数量
-  emojiTotalCount: 5000, // 全部分组的表情数量
-  emojiIcon: 2000,
-  emojiText: 200,
-} as const;
-
 /** 获取（必要时创建）配置目录 */
 const ensureConfigDir = (): string => {
   const configDir = join(process.cwd(), 'data', 'config');
@@ -311,19 +404,10 @@ const requireString = (
   return trimmed;
 };
 
-/** 校验跳转链接，只允许 http(s) 或站内相对路径，避免 javascript: 等危险协议 */
+/** 校验跳转链接，只允许 http(s) 或站内相对路径，避免 javascript: / 反斜杠绕过 */
 const assertSafeUrl = (url: string, field: string): void => {
-  if (url.startsWith('/') && !url.startsWith('//')) {
+  if (isSafeServiceUrl(url)) {
     return;
-  }
-
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      return;
-    }
-  } catch {
-    // 交给下面统一抛错
   }
 
   throw new ConfigValidationError(`${field} 必须是 http(s) 链接或以 / 开头的站内路径`);
@@ -347,6 +431,9 @@ const normalizeEmojiBaseUrl = (value: unknown): string => {
   if (trimmed.length > LIMITS.emojiBaseUrl) {
     throw new ConfigValidationError(`emojiBaseUrl 长度不能超过 ${LIMITS.emojiBaseUrl} 个字符`);
   }
+  if (trimmed.includes('\\') || /[\u0000-\u001f\u007f]/.test(trimmed)) {
+    throw new ConfigValidationError('emojiBaseUrl 不能包含反斜杠或控制字符');
+  }
 
   try {
     const parsed = new URL(trimmed);
@@ -358,7 +445,7 @@ const normalizeEmojiBaseUrl = (value: unknown): string => {
       parsed.username === '' &&
       parsed.password === ''
     ) {
-      return trimmed;
+      return parsed.origin;
     }
   } catch {
     // 交给下面统一抛错
@@ -566,7 +653,7 @@ const parseEmojiData = (input: unknown, strict: boolean): EmojiData => {
     throw new ConfigValidationError(`表情分组最多 ${LIMITS.emojiGroupCount} 组`);
   }
 
-  const data: EmojiData = {};
+  const data: EmojiData = Object.create(null) as EmojiData;
   let total = 0;
 
   for (const [rawName, rawGroup] of entries) {
@@ -576,6 +663,9 @@ const parseEmojiData = (input: unknown, strict: boolean): EmojiData => {
     try {
       if (name === '' || name.length > LIMITS.emojiGroupName) {
         throw new ConfigValidationError(`分组名不能为空且长度不能超过 ${LIMITS.emojiGroupName} 个字符`);
+      }
+      if (RESERVED_OBJECT_KEYS.has(name)) {
+        throw new ConfigValidationError(`分组名不能使用保留字 ${name}`);
       }
 
       const group = parseEmojiGroup(rawGroup, field);

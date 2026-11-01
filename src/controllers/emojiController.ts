@@ -14,10 +14,49 @@ import { logger } from '../utils/logger.js';
 /** 只匹配 src 为站内单一斜杠开头路径的图片标签 */
 const INNER_IMG_SRC = /(<img\b[^>]*?\ssrc=["'])(\/[^"']*)(["'])/gi;
 
+/** 非法 Host 告警节流，避免被恶意请求刷日志 */
+let lastUnsafeOriginWarning = 0;
+
+/**
+ * 把协议 + Host 规范化成安全的 origin。
+ *
+ * Host / X-Forwarded-Host 是客户端可控输入，而表情 icon 会被使用方当 HTML 插入，
+ * 因此这里只接受合法的 http(s) origin，拒绝引号、尖括号、反斜杠、路径、用户信息等。
+ * @returns 规范化后的 origin；不合法时返回 null
+ */
+const normalizeOrigin = (protocol: string | undefined, host: string | undefined): string | null => {
+  const proto = (protocol ?? '').trim().toLowerCase();
+  const rawHost = (host ?? '').trim();
+
+  if (proto !== 'http' && proto !== 'https') {
+    return null;
+  }
+  if (rawHost === '' || rawHost.length > 255 || /[\u0000-\u0020"'<>\\/?#@%]/.test(rawHost)) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(`${proto}://${rawHost}`);
+    if (
+      parsed.username !== '' ||
+      parsed.password !== '' ||
+      parsed.pathname !== '/' ||
+      parsed.search !== '' ||
+      parsed.hash !== ''
+    ) {
+      return null;
+    }
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * 推导本站对外访问地址
  *
- * 优先级：后台「表情数据 → 对外访问地址」 > X-Forwarded-Proto/X-Forwarded-Host > 请求自身地址
+ * 优先级：后台「表情数据 → 对外访问地址」 > X-Forwarded-Proto/X-Forwarded-Host > 请求自身地址。
+ * Host 不合法时返回空字符串，让图标保持站内相对路径，避免把注入内容拼进 HTML。
  */
 export const resolveBaseUrl = (c: Context): string => {
   const configured = loadSiteConfig().emojiBaseUrl;
@@ -25,18 +64,31 @@ export const resolveBaseUrl = (c: Context): string => {
     return configured;
   }
 
-  const fallbackOrigin = new URL(c.req.url).origin;
+  const requestUrl = new URL(c.req.url);
+  const requestProtocol = requestUrl.protocol.replace(':', '');
+  const forwardedProto = c.req.header('x-forwarded-proto')?.split(',')[0]?.trim();
   const forwardedHost = c.req.header('x-forwarded-host')?.split(',')[0]?.trim();
-  const host = forwardedHost || c.req.header('host')?.trim();
+  const hostHeader = c.req.header('host')?.trim();
 
-  if (!host) {
-    return fallbackOrigin;
+  const candidates: Array<[string | undefined, string | undefined]> = [
+    [forwardedProto, forwardedHost],
+    [forwardedProto ?? requestProtocol, hostHeader],
+    [requestProtocol, requestUrl.host],
+  ];
+
+  for (const [protocol, host] of candidates) {
+    const origin = normalizeOrigin(protocol, host);
+    if (origin) {
+      return origin;
+    }
   }
 
-  const forwardedProto = c.req.header('x-forwarded-proto')?.split(',')[0]?.trim();
-  const protocol = forwardedProto || new URL(c.req.url).protocol.replace(':', '');
-
-  return `${protocol}://${host}`;
+  const now = Date.now();
+  if (now - lastUnsafeOriginWarning > 60_000) {
+    lastUnsafeOriginWarning = now;
+    logger.warn('Rejected unsafe host/protocol for emoji base URL', 'Emoji');
+  }
+  return '';
 };
 
 /** 把图片表情里的站内相对地址补全为绝对地址（外链与协议相对地址保持不变） */

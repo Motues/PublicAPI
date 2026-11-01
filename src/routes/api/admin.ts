@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import {
   ConfigValidationError,
   loadEmojiData,
@@ -42,6 +43,21 @@ import { logger } from '../../utils/logger.js';
  * 除登录/初始化外的接口都需要有效会话。
  */
 const adminApi = new Hono();
+
+const makeBodyLimit = (maxSize: number) => bodyLimit({
+  maxSize,
+  onError: (c) => c.json({ error: `请求体过大（上限 ${Math.floor(maxSize / 1024 / 1024)}MB）` }, 413),
+});
+
+const defaultBodyLimit = makeBodyLimit(1 * 1024 * 1024);
+const emojiBodyLimit = makeBodyLimit(12 * 1024 * 1024);
+
+// 后台接口一律限制请求体，避免未授权请求用超大 JSON 打满内存；
+// 表情配置允许 12MB（5000 个表情 × 单项 2KB 的理论上限）。
+adminApi.use('*', async (c, next) => {
+  const limit = c.req.path.endsWith('/config/emoji') ? emojiBodyLimit : defaultBodyLimit;
+  return limit(c, next);
+});
 
 adminApi.use('*', requireSameOrigin);
 

@@ -12,10 +12,14 @@ import { createCorsMiddleware } from './utils/middleware/cors.js';
 import { counterMiddleware} from './utils/middleware/counter.js';
 import { createRateLimitMiddleware } from './utils/middleware/rateLimiter.js';
 import { lruCacheMiddleware } from './utils/middleware/lruCache.js';
+import { securityHeaders } from './utils/middleware/security.js';
 import { config } from './utils/config.js';
 import { logger } from './utils/logger.js';
 
 const app = new Hono()
+
+// 全局安全响应头
+app.use('*', securityHeaders);
 
 // 全局 CORS 中间件
 app.use('*', createCorsMiddleware(config.allowedOrigins));

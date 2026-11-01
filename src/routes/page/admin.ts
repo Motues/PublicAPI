@@ -11,7 +11,7 @@ import {
   type PasswordSource,
 } from '../../utils/adminAuth.js';
 import { getSystemInfo } from '../../utils/systemInfo.js';
-import { escapeHtml } from '../../utils/html.js';
+import { escapeHtml, jsonForScript } from '../../utils/html.js';
 
 /**
  * 管理后台页面 /admin
@@ -887,12 +887,12 @@ interface PanelOptions {
 const panelView = (options: PanelOptions): string => {
   const { site, passwordSource, passwordFromEnv, sessionTtlMinutes, stats, system } = options;
 
-  const bootstrap = JSON.stringify({
+  const bootstrap = jsonForScript({
     site,
     services: options.services,
     meting: options.meting,
     emoji: options.emoji,
-  }).replace(/</g, '\\u003c');
+  });
 
   const securityBody = passwordFromEnv
     ? `<div class="notice">

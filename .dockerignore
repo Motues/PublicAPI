@@ -1,0 +1,16 @@
+# Build context hygiene: never send secrets or local state to the Docker daemon.
+.git
+.github
+.gitignore
+.env
+.env.*
+data
+node_modules
+dist
+TODO.md
+.audit
+.claude
+CLAUDE.md
+*.log
+*.tsbuildinfo
+coverage

@@ -33,3 +33,7 @@ lerna-debug.log*
 
 CLAUDE.md
 .claude/
+
+# local work log / temporary audit scripts (never commit)
+TODO.md
+.audit/
