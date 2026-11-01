@@ -34,6 +34,11 @@ const normalizeOrigin = (value: string | undefined): string => {
 
 const rawAllowedOrigins = splitList(process.env.ALLOW_ORIGIN);
 
+const envFlag = (name: string): boolean => {
+  const value = (process.env[name] ?? '').trim().toLowerCase();
+  return value === 'true' || value === '1';
+};
+
 export const config = {
   port: Number(process.env.PORT) || 3000,
 
@@ -56,13 +61,13 @@ export const config = {
    * 默认 false：直接使用 socket 地址，任何 X-Forwarded-For / CF-Connecting-IP
    * 都不会影响限流、登录锁定和日志。只有在服务确实位于可信代理之后时才打开。
    */
-  trustProxy: process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1',
+  trustProxy: envFlag('TRUST_PROXY'),
 
   /** 可信代理地址（逗号分隔，精确匹配 socket 地址）；为空时 trustProxy=true 表示信任所有代理 */
   trustedProxies: splitList(process.env.TRUSTED_PROXIES),
 
   /** 是否信任 Cloudflare 的 CF-Connecting-IP（仅在使用 Cloudflare 时打开） */
-  trustCloudflare: process.env.TRUST_CLOUDFLARE === 'true',
+  trustCloudflare: envFlag('TRUST_CLOUDFLARE'),
 
   /** 对外访问地址，用于生成正式 URL / 后台同源校验；留空则按请求推导 */
   publicOrigin: normalizeOrigin(process.env.PUBLIC_ORIGIN),

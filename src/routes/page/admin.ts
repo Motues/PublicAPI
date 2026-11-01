@@ -12,6 +12,7 @@ import {
   type PasswordSource,
 } from '../../utils/adminAuth.js';
 import { getSystemInfo } from '../../utils/systemInfo.js';
+import { getNetworkInfo, type NetworkInfo } from '../../utils/networkInfo.js';
 import { escapeHtml, jsonForScript } from '../../utils/html.js';
 
 /**
@@ -930,11 +931,25 @@ interface PanelOptions {
   sessionTtlMinutes: number;
   stats: { total: number; today: number };
   system: { osName: string; nodeVersion: string };
+  network: NetworkInfo;
 }
 
 /** 控制台视图 */
 const panelView = (options: PanelOptions): string => {
-  const { site, passwordSource, passwordFromEnv, sessionTtlMinutes, stats, system } = options;
+  const { site, passwordSource, passwordFromEnv, sessionTtlMinutes, stats, system, network } = options;
+
+  const networkRows = network.settings.map((setting) => `
+    <div class="stats-row">
+      <span class="stats-label">${escapeHtml(setting.key)}</span>
+      <span class="stats-value"><b>${escapeHtml(setting.value)}</b> <small style="color: var(--subtle-color);">${setting.source}</small></span>
+    </div>
+    <div class="hint" style="margin-top: -4px; margin-bottom: 10px;">${escapeHtml(setting.description)}</div>`).join('');
+
+  const networkWarnings = network.warnings.length > 0
+    ? `<div class="notice" style="border-left-color: var(--danger-color); color: var(--danger-color);">
+        ${network.warnings.map((warning) => `<div>⚠ ${escapeHtml(warning)}</div>`).join('')}
+      </div>`
+    : '';
 
   const bootstrap = jsonForScript({
     site,
@@ -1008,6 +1023,7 @@ const panelView = (options: PanelOptions): string => {
     <button class="tab" type="button" data-tab="meting">[MUSIC] 音乐设置</button>
     <button class="tab" type="button" data-tab="emoji">[EMOJI] 表情数据</button>
     <button class="tab" type="button" data-tab="analytics">[STAT] 调用分析</button>
+    <button class="tab" type="button" data-tab="network">[NET] 网络与代理</button>
     <button class="tab" type="button" data-tab="security">[SEC] 安全设置</button>
   </div>
 
@@ -1151,6 +1167,19 @@ const panelView = (options: PanelOptions): string => {
     </div>
   </div>
 
+  <div class="panel" data-panel="network">
+    <div class="box">
+      <div class="box-title">[NET] 网络与代理 · 环境变量（只读）</div>
+      <div class="notice">
+        这些值决定客户端 IP 与对外地址的信任边界，只能在 <b>.env</b> / <b>docker-compose.yml</b> / 部署环境中修改，修改后需重启服务。<br>
+        面板不提供写接口，避免误改或把后台配置变成绕过限流的入口。
+      </div>
+      ${networkWarnings}
+      ${networkRows}
+      <div class="hint">* 反向代理部署建议：<b>TRUST_PROXY=true</b>、<b>TRUSTED_PROXIES=127.0.0.1</b>、<b>PUBLIC_ORIGIN=https://你的域名</b>；直接暴露公网时保持 TRUST_PROXY 关闭。</div>
+    </div>
+  </div>
+
   <div class="panel" data-panel="security">
     <div class="box">
       <div class="box-title">[SEC] 安全设置</div>
@@ -1195,6 +1224,7 @@ export const adminPage = async (c: Context) => {
       sessionTtlMinutes: getSessionTtlMinutes(),
       stats,
       system: { osName: system.osName, nodeVersion: system.nodeVersion },
+      network: getNetworkInfo(),
     }), PANEL_SCRIPT));
   }
 

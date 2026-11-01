@@ -10,6 +10,10 @@ process.env.ADMIN_SETUP_TOKEN = 'test-setup-token';
 process.env.ADMIN_SESSION_TTL = '999999';
 process.env.LOG_LEVEL = 'error';
 process.env.ALLOW_ORIGIN = '';
+process.env.TRUST_PROXY = 'false';
+process.env.TRUSTED_PROXIES = '';
+process.env.TRUST_CLOUDFLARE = 'false';
+process.env.PUBLIC_ORIGIN = '';
 
 const { jsonForScript } = await import('../src/utils/html.ts');
 const { verifySetupToken, getSessionTtlMinutes } = await import('../src/utils/adminAuth.ts');
@@ -18,6 +22,7 @@ const { createCorsMiddleware } = await import('../src/utils/middleware/cors.ts')
 const { createRateLimitMiddleware } = await import('../src/utils/middleware/rateLimiter.ts');
 const { lruCacheMiddleware } = await import('../src/utils/middleware/lruCache.ts');
 const { absolutizeIcons } = await import('../src/controllers/emojiController.ts');
+const { getNetworkInfo } = await import('../src/utils/networkInfo.ts');
 const { shutdownStats } = await import('../src/utils/middleware/counter.ts');
 
 test('jsonForScript 转义 </script> 且仍是合法 JSON', () => {
@@ -102,6 +107,20 @@ test('文本表情输出转义 HTML', () => {
 
   assert.equal(out.test!.container[0]!.icon, '&lt;img src=x onerror=alert(1)&gt;');
   assert.equal(out.test!.container[0]!.text, '&lt;b&gt;x&lt;/b&gt;');
+});
+
+test('网络与代理只读信息完整且不含密钥', () => {
+  const info = getNetworkInfo();
+  assert.deepEqual(info.settings.map((item) => item.key), [
+    'TRUST_PROXY',
+    'TRUSTED_PROXIES',
+    'TRUST_CLOUDFLARE',
+    'PUBLIC_ORIGIN',
+  ]);
+  assert.equal(info.settings[0]!.value, 'false');
+  assert.equal(info.settings[0]!.source, '环境变量');
+  assert.equal(info.warnings.length > 0, true);
+  assert.equal(JSON.stringify(info).includes('test-setup-token'), false);
 });
 
 test('createApp 工厂提供健康检查', async () => {

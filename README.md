@@ -91,6 +91,8 @@ pnpm start
 
 健康检查接口为 `GET /healthz`（不鉴权、不计数），Docker 镜像已配置 `HEALTHCHECK`。
 
+后台「网络与代理」面板只读展示 `TRUST_PROXY`、`TRUSTED_PROXIES`、`TRUST_CLOUDFLARE`、`PUBLIC_ORIGIN` 的当前生效值和来源，并提示配置风险；这些信任边界仍只允许通过环境变量 / docker-compose 修改，修改后需重启服务。
+
 首次部署且未配置 `ADMIN_PASSWORD` / `ADMIN_PASSWORD_HASH` 时，打开 `/admin` 会进入初始化页；需要填写服务端日志中的 `Admin setup token`（或预先设置 `ADMIN_SETUP_TOKEN`）。初始化完成后该页面自动关闭。退出登录会轮换会话密钥，使其他设备上的会话一并失效（若使用固定的 `ADMIN_SESSION_SECRET` 则只能清除当前浏览器）。
 
 访问 `/admin` 即可实时修改配置，保存后立即生效，无需重启服务：
