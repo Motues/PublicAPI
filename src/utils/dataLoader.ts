@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'fs';
 import { join } from 'path';
 import { logger } from './logger.js';
+import { CONFIG_DIR } from './paths.js';
 import { defaultEmojiData } from './defaultEmoji.js';
 import type { EmojiData, EmojiGroup, EmojiItem, EmojiType } from './defaultEmoji.js';
 
@@ -101,7 +102,7 @@ export function loadServices(): ServiceItem[] {
   }
 
   try {
-    const configDir = join(process.cwd(), 'data', 'config');
+    const configDir = CONFIG_DIR;
     const configPath = join(configDir, 'services.json');
 
     if (!existsSync(configDir)) {
@@ -186,7 +187,7 @@ export function loadSiteConfig(): SiteConfig {
   }
 
   try {
-    const configDir = join(process.cwd(), 'data', 'config');
+    const configDir = CONFIG_DIR;
     const configPath = join(configDir, 'site.json');
 
     if (!existsSync(configDir)) {
@@ -239,7 +240,7 @@ export function loadMetingSettings(): MetingConfig {
   }
 
   try {
-    const configDir = join(process.cwd(), 'data', 'config');
+    const configDir = CONFIG_DIR;
     const configPath = join(configDir, 'meting.json');
 
     if (!existsSync(configDir)) {
@@ -323,7 +324,7 @@ export function loadEmojiData(): EmojiData {
   }
 
   try {
-    const configDir = join(process.cwd(), 'data', 'config');
+    const configDir = CONFIG_DIR;
     const configPath = join(configDir, 'emoji.json');
 
     if (!existsSync(configDir)) {
@@ -379,11 +380,10 @@ export class ConfigValidationError extends Error {
 
 /** 获取（必要时创建）配置目录 */
 const ensureConfigDir = (): string => {
-  const configDir = join(process.cwd(), 'data', 'config');
-  if (!existsSync(configDir)) {
-    mkdirSync(configDir, { recursive: true });
+  if (!existsSync(CONFIG_DIR)) {
+    mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
   }
-  return configDir;
+  return CONFIG_DIR;
 };
 
 /** 原子写入 JSON 配置，避免写入中断损坏原文件 */

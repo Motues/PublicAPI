@@ -1,3 +1,15 @@
+const LEVELS = {
+  debug: 10,
+  info: 20,
+  warn: 30,
+  error: 40,
+} as const;
+
+type LogLevel = keyof typeof LEVELS;
+
+const configuredLevel = (process.env.LOG_LEVEL ?? 'info').trim().toLowerCase() as LogLevel;
+const threshold = LEVELS[configuredLevel] ?? LEVELS.info;
+
 const timestamp = (): string => {
   const now = new Date();
   return now.toLocaleString('zh-CN', {
@@ -17,14 +29,28 @@ const tag = (level: string, tag?: string): string => {
   return tag ? `${base} [${tag}]` : base;
 };
 
+const shouldLog = (level: LogLevel): boolean => LEVELS[level] >= threshold;
+
 export const logger = {
+  debug(message: string, tagLabel?: string) {
+    if (shouldLog('debug')) {
+      console.log(`${tag('DEBUG', tagLabel)} ${message}`);
+    }
+  },
   info(message: string, tagLabel?: string) {
-    console.log(`${tag('INFO', tagLabel)} ${message}`);
+    if (shouldLog('info')) {
+      console.log(`${tag('INFO', tagLabel)} ${message}`);
+    }
   },
   warn(message: string, tagLabel?: string) {
-    console.warn(`${tag('WARN', tagLabel)} ${message}`);
+    if (shouldLog('warn')) {
+      console.warn(`${tag('WARN', tagLabel)} ${message}`);
+    }
   },
   error(message: string, err?: unknown, tagLabel?: string) {
+    if (!shouldLog('error')) {
+      return;
+    }
     if (err !== undefined) {
       console.error(`${tag('ERROR', tagLabel)} ${message}`, err);
     } else {

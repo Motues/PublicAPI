@@ -7,6 +7,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { getClientIP } from './ip.js';
 import { config } from './config.js';
+import { CONFIG_DIR } from './paths.js';
 import { logger } from './logger.js';
 
 /**
@@ -62,7 +63,7 @@ let adminFileBroken = false;
 /** 写入失败时使用的进程内会话密钥，保证同一进程内会话稳定 */
 let ephemeralSecret: string | null = null;
 
-const getAdminConfigPath = (): string => join(process.cwd(), 'data', 'config', 'admin.json');
+const getAdminConfigPath = (): string => join(CONFIG_DIR, 'admin.json');
 
 const readAdminFile = (): AdminFileConfig => {
   const now = Date.now();
@@ -108,9 +109,8 @@ const readAdminFile = (): AdminFileConfig => {
 };
 
 const writeAdminFile = (data: AdminFileConfig): void => {
-  const configDir = join(process.cwd(), 'data', 'config');
-  if (!existsSync(configDir)) {
-    mkdirSync(configDir, { recursive: true, mode: 0o700 });
+  if (!existsSync(CONFIG_DIR)) {
+    mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
   }
 
   const configPath = getAdminConfigPath();

@@ -2,9 +2,15 @@
   "name": "public-api",
   "type": "module",
   "version": "0.2.4",
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test tests/security.test.ts",
     "start": "node dist/index.js",
     "emoji:sync": "node scripts/sync-emoji-assets.mjs --emit-ts --update-data",
     "emoji:record": "node scripts/sync-emoji-assets.mjs --record-missing --emit-ts --update-data"

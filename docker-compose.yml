@@ -6,6 +6,9 @@ services:
     # image: <用户名>/publicapi:latest
     container_name: public-api-server
     restart: always
+    init: true
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "3000:3000" 
     environment:

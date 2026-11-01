@@ -35,11 +35,19 @@ const preloadDocs = async () => {
   }
 };
 
-// 执行预加载
-await preloadDocs();
+// 首次访问 /docs 时再加载，避免阻塞服务启动；用 Promise 复用并发请求
+let docsPromise: Promise<void> | null = null;
+const ensureDocsLoaded = (): Promise<void> => {
+  if (!docsPromise) {
+    docsPromise = preloadDocs();
+  }
+  return docsPromise;
+};
 
 // --- 路由处理函数 ---
 export const docPage = async (c) => {
+  await ensureDocsLoaded();
+
   const subPath = c.req.param('path'); // 获取匹配路径
   const safePath = escapeHtml(subPath);
   const htmlContent = docCache.get(subPath);

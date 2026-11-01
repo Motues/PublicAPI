@@ -1,10 +1,11 @@
 import type { Context, Next } from 'hono';
 import storage from 'node-persist';
 import { logger } from '../logger.js';
+import { STATS_DIR } from '../paths.js';
 
 // 初始化存储
 await storage.init({
-  dir: './data/stats', // 数据保存目录
+  dir: STATS_DIR, // 数据保存目录
   forgiveParseErrors: true,
 });
 
@@ -66,7 +67,7 @@ const endpointFromPath = (path: string): string => {
 };
 
 /** 把内存统计写入磁盘 */
-const flushStats = async (): Promise<void> => {
+export const flushStats = async (): Promise<void> => {
   await Promise.all([
     storage.setItem('totalCount', totalCount),
     storage.setItem('dailyStats', dailyStats),
@@ -74,32 +75,26 @@ const flushStats = async (): Promise<void> => {
   ]);
 };
 
-// 定期刷新到磁盘（每 5 秒）
-const flushInterval = setInterval(async () => {
+// 定期刷新到磁盘（每 5 秒）；unref 避免测试/脚本被定时器挂住
+const flushTimer = setInterval(async () => {
   try {
     await flushStats();
   } catch (e) {
     logger.error('Failed to flush stats to disk:', e, 'Counter');
   }
 }, 5000);
+flushTimer.unref?.();
 
-// 在程序退出前强制保存
-async function gracefulShutdown() {
-  logger.info('Flushing stats before shutdown...', 'Counter');
-  clearInterval(flushInterval);
+/** 停止定时刷新并立即落盘，供 HTTP server 优雅退出时调用 */
+export const shutdownStats = async (): Promise<void> => {
+  clearInterval(flushTimer);
   try {
     await flushStats();
     logger.info('Stats saved successfully', 'Counter');
   } catch (e) {
     logger.error('Failed to save stats on shutdown:', e, 'Counter');
   }
-  process.exit(0);
-}
-
-// 监听退出信号
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
-process.on('beforeExit', gracefulShutdown);
+};
 
 export const counterMiddleware = async (c: Context, next: Next) => {
   const today = dateKey();

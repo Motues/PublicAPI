@@ -29,6 +29,8 @@ wget https://raw.githubusercontent.com/Motues/PublicAPI/main/docker-compose.yml
 docker compose up -d
 ```
 
+镜像入口会先修正 `/app/data` 属主，再降权到 `node` 用户运行；如果自行覆盖 `entrypoint` 或使用只读挂载，请确保数据目录可写。构建阶段使用 `pnpm-lock.yaml` 与 `corepack`，避免依赖漂移。
+
 镜像同时发布到两个官方镜像仓库，内容一致，按网络情况选择即可：
 
 | 镜像仓库 | 镜像地址 |
@@ -65,6 +67,9 @@ pnpm start
 | 变量 | 说明 | 默认值 |
 | --- | --- | --- |
 | `PORT` | 服务监听端口 | `3000` |
+| `DATA_DIR` | 配置与会话数据目录 | `./data` |
+| `PUBLIC_DIR` | 静态资源目录 | `./public` |
+| `LOG_LEVEL` | 日志级别：`debug` / `info` / `warn` / `error` | `info` |
 | `ALLOW_ORIGIN` | 公开接口允许跨域的源，多个用逗号分隔；留空或 `*` 表示允许所有，配置了但全部非法时按拒绝处理。公开接口不使用 Cookie | 空 |
 | `MUSIC` | 设置为 `open` 启用音乐 API | 关闭 |
 | `AVATAR` | 设置为 `open` 启用头像 API | 关闭 |
@@ -83,6 +88,8 @@ pnpm start
 > 部署在 Nginx / Caddy / Cloudflare 等反向代理之后时，必须设置 `TRUST_PROXY=true`，否则所有请求都会按代理的 socket IP 共享限流配额；同时建议设置 `TRUSTED_PROXIES`（例如 `127.0.0.1`）和 `PUBLIC_ORIGIN`。直接暴露到公网时保持 `TRUST_PROXY` 关闭，任何客户端都无法通过伪造 `X-Forwarded-For` 绕过限流或登录锁定。
 
 ## 管理后台
+
+健康检查接口为 `GET /healthz`（不鉴权、不计数），Docker 镜像已配置 `HEALTHCHECK`。
 
 首次部署且未配置 `ADMIN_PASSWORD` / `ADMIN_PASSWORD_HASH` 时，打开 `/admin` 会进入初始化页；需要填写服务端日志中的 `Admin setup token`（或预先设置 `ADMIN_SETUP_TOKEN`）。初始化完成后该页面自动关闭。退出登录会轮换会话密钥，使其他设备上的会话一并失效（若使用固定的 `ADMIN_SESSION_SECRET` 则只能清除当前浏览器）。
 
