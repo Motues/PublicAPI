@@ -78,6 +78,9 @@ const PAGE_STYLE = `
       --danger-color: #f85149;
       --danger-contrast: #0d1117;
     }
+
+    /* 页脚 Public API 链接在深色模式下反转为白底黑字，与浅色模式相反 */
+    .footer a:hover { color: #000000; background-color: #ffffff; border-bottom-color: #ffffff; }
   }
 
   body { max-width: 780px; margin: 40px auto; padding: 20px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace, 'Noto Serif SC', -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-color); line-height: 1.5; }

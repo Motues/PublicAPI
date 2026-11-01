@@ -16,10 +16,6 @@
 
 提供 OwO 格式的表情数据接口（参考 [owo.imaegoo.com/owo.json](https://owo.imaegoo.com/owo.json)），兼容 Twikoo、Artalk、Waline 等评论系统的自定义表情包；图片资源位于 `public/emoji/`，随仓库一起发布，由本站自己托管，不依赖第三方图床。
 
-## 界面
-
-首页、文档页与管理后台均为原生 HTML + 内联样式，并通过 `prefers-color-scheme` 跟随系统 / 浏览器的深色模式偏好自动切换配色，无需手动设置。
-
 ## 部署方式
 
 ### Docker Compose
@@ -29,8 +25,6 @@ wget https://raw.githubusercontent.com/Motues/PublicAPI/main/docker-compose.yml
 docker compose up -d
 ```
 
-镜像入口会先修正 `/app/data` 属主，再降权到 `node` 用户运行；如果自行覆盖 `entrypoint` 或使用只读挂载，请确保数据目录可写。构建阶段使用 `pnpm-lock.yaml` 与 `corepack`，避免依赖漂移。
-
 镜像同时发布到两个官方镜像仓库，内容一致，按网络情况选择即可：
 
 | 镜像仓库 | 镜像地址 |
@@ -38,15 +32,7 @@ docker compose up -d
 | GitHub 容器镜像仓库（GHCR） | `ghcr.io/motues/publicapi` |
 | Docker Hub | `motues/publicapi` |
 
-支持的标签：`latest`（最新版本）、`0.2.4`（完整版本号）、`0.2`（次版本号，随补丁更新）。
-
-```bash
-# 直接拉取运行（以 Docker Hub 为例）
-docker run -d --name public-api -p 3000:3000 \
-  -e EMOJI=open \
-  -v $(pwd)/data:/app/data \
-  motues/publicapi:latest
-```
+> 镜像入口会先修正 `/app/data` 属主，再降权到 `node` 用户运行；如果自行覆盖 `entrypoint` 或使用只读挂载，请确保数据目录可写。构建阶段使用 `pnpm-lock.yaml` 与 `corepack`，避免依赖漂移。
 
 ### Node.js
 
@@ -160,6 +146,5 @@ pnpm start
 
 图片表情文件放在 `public/emoji/<分组名小写>/` 下，通过 `/static/emoji/...` 访问，接口返回时会按请求域名补全为绝对地址；详细说明见 [/docs/emoji](/docs/emoji)。
 
-Made with ❤️ by [Motues](https://www.motues.top)
-
-如果使用过程中存在问题，欢迎通过[邮件](mailto:me@motues.top)告诉我
+> Made with ❤️ by [Motues](https://www.motues.top)  
+> 如果使用过程中存在问题，欢迎通过[邮件](mailto:me@motues.top)告诉我

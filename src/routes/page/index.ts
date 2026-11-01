@@ -7,7 +7,7 @@ import { escapeHtml, jsonForScript } from '../../utils/html.js';
 const osName = getSystemInfo().osName || 'Unknown OS';
 export const indexPage = async (c) => {
   const stats = await getStats();
-  const currentTime = new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
+  const currentTime = new Date().toLocaleString('zh-CN', { hourCycle: 'h23', timeZone: 'Asia/Shanghai' });
   const currentYear = new Date().getFullYear();
   const services = loadServices(), siteConfig = loadSiteConfig();
 
@@ -68,8 +68,8 @@ export const indexPage = async (c) => {
             --badge-text: #e6edf3;
             --success-color: #3fb950;
             --danger-color: #f85149;
-            --hover-bg: #21262d;
-            --hover-text: #f0f6fc;
+            --hover-bg: #ffffff;
+            --hover-text: #000000;
           }
         }
 
@@ -119,7 +119,7 @@ export const indexPage = async (c) => {
           </div>
           <div>操作系统: <span style="float:right">${escapeHtml(osName)}</span></div>
           <div>运行框架: <span style="float:right">Node.js / Hono</span></div>
-          <div>系统时间: <span style="float:right">${currentTime}</span></div>
+          <div>系统时间: <span id="system-time" style="float:right">${currentTime}</span></div>
           <div>在线状态: <span style="float:right; color: var(--success-color);">[STATUS OK]</span></div>
           <div class="stats-info">
             <div class="stats-row">
@@ -166,6 +166,33 @@ export const indexPage = async (c) => {
 
       <script>
         const descriptions = ${jsonForScript(siteDescriptions)};
+
+        (function() {
+          const timeElement = document.getElementById('system-time');
+          if (!timeElement) return;
+
+          // 以服务端时间为基准，用客户端流逝时间推算，避免依赖访客本机时钟是否准确
+          const serverTimestamp = ${Date.now()};
+          const clientTimestamp = Date.now();
+          const formatter = new Intl.DateTimeFormat('zh-CN', {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hourCycle: 'h23',
+            timeZone: 'Asia/Shanghai'
+          });
+
+          function tickClock() {
+            const elapsed = Date.now() - clientTimestamp;
+            timeElement.textContent = formatter.format(new Date(serverTimestamp + elapsed));
+          }
+
+          tickClock();
+          setInterval(tickClock, 1000);
+        })();
 
         (function() {
           const element = document.getElementById('typewriter');
