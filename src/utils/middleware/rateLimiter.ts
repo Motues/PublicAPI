@@ -75,7 +75,8 @@ export const createRateLimitMiddleware = (options: RateLimitOptions = {}) => {
 
   return async (c: Context, next: Next) => {
     const now = Date.now();
-    const key = `${scope}:${keyGenerator(c)}`;
+    const clientKey = keyGenerator(c);
+    const key = `${scope}:${clientKey}`;
     let entry = rateLimitStore.get(key);
 
     // 如果不存在或已过期，创建新的记录
@@ -91,7 +92,7 @@ export const createRateLimitMiddleware = (options: RateLimitOptions = {}) => {
     if (entry.count >= maxRequests) {
       const retryAfter = Math.max(1, Math.ceil((entry.resetTime - now) / 1000));
 
-      logger.warn(`Rate limit exceeded for ${scope}: ${keyGenerator(c)} (${entry.count}/${maxRequests})`, 'RateLimit');
+      logger.warn(`Rate limit exceeded for ${scope}: ${clientKey} (${entry.count}/${maxRequests})`, 'RateLimit');
 
       c.header('Retry-After', retryAfter.toString());
       c.header('X-RateLimit-Limit', maxRequests.toString());

@@ -46,11 +46,6 @@ export const getClientIP = (c: Context): string => {
     }
   }
 
-  const realIP = c.req.header('x-real-ip')?.split(',')[0]?.trim();
-  if (realIP && isIP(realIP) !== 0) {
-    return realIP;
-  }
-
   const forwardedFor = c.req.header('x-forwarded-for');
   if (forwardedFor) {
     const chain = forwardedFor
@@ -74,6 +69,12 @@ export const getClientIP = (c: Context): string => {
 
       return chain[0]!;
     }
+  }
+
+  // X-Real-IP 没有链式信息，放在 XFF 之后作为兜底，降低被单个请求头误导的风险
+  const realIP = c.req.header('x-real-ip')?.split(',')[0]?.trim();
+  if (realIP && isIP(realIP) !== 0) {
+    return realIP;
   }
 
   return fallback;
