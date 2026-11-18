@@ -3,8 +3,8 @@ import { getConnInfo } from '@hono/node-server/conninfo'
 import { isIP } from 'node:net';
 import { config } from './config.js';
 
-/** 去掉 IPv4-mapped IPv6 前缀，便于和可信代理列表比较 */
-const canonicalIP = (ip: string): string =>
+/** 去掉 IPv4-mapped IPv6 前缀，便于和可信代理列表比较、日志里展示成普通 IPv4 */
+export const canonicalIP = (ip: string): string =>
   ip.toLowerCase().startsWith('::ffff:') ? ip.slice(7) : ip;
 
 /** 取得 TCP 连接的对端地址；非 Node server 环境（如单元测试）返回空字符串 */

@@ -49,6 +49,17 @@ export const config = {
   /** ALLOW_ORIGIN 未配置或为 `*` 时允许所有来源；配置了但全部非法时按拒绝处理 */
   allowAllOrigins: rawAllowedOrigins.length === 0 || rawAllowedOrigins.includes('*'),
 
+  /**
+   * 访问日志：是否附带访问域名（Host）。
+   *
+   * 与 LOG_ACCESS_IP 都关闭（默认）时不输出访问日志；打开任意一个即记录公开接口请求，
+   * 且只包含已打开的字段，便于在不记录 IP 的前提下观察域名分布。
+   */
+  logAccessHost: envFlag('LOG_ACCESS_HOST'),
+
+  /** 访问日志：是否附带客户端 IP（受 TRUST_PROXY / TRUST_CLOUDFLARE 影响） */
+  logAccessIp: envFlag('LOG_ACCESS_IP'),
+
   musicOpen: process.env.MUSIC === 'open',
 
   avatarOpen: process.env.AVATAR === 'open',

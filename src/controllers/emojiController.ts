@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { loadEmojiData, loadSiteConfig } from '../utils/dataLoader.js';
 import type { EmojiData } from '../utils/defaultEmoji.js';
 import { config } from '../utils/config.js';
-import { escapeHtml } from '../utils/html.js';
+import { escapeHtml, escapeTagOpen } from '../utils/html.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -116,11 +116,12 @@ export const absolutizeIcons = (data: EmojiData, baseUrl: string): EmojiData => 
       continue;
     }
 
-    // 文本/emoji 由使用方当 HTML 插入，输出前转义，避免配置或上游数据里的 HTML 被执行
+    // 文本/emoji 由使用方当 HTML 插入：icon 只中和可能形成标签的 `<`，保留颜文字里
+    // 的引号、`&`、`<>` 等原样；text 会进 title 属性，继续做完整 HTML 转义
     result[name] = {
       type: group.type,
       container: group.container.map((item) => ({
-        icon: escapeHtml(item.icon),
+        icon: escapeTagOpen(item.icon),
         text: escapeHtml(item.text),
       })),
     };

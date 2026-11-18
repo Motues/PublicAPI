@@ -56,6 +56,8 @@ pnpm start
 | `DATA_DIR` | 配置与会话数据目录 | `./data` |
 | `PUBLIC_DIR` | 静态资源目录 | `./public` |
 | `LOG_LEVEL` | 日志级别：`debug` / `info` / `warn` / `error` | `info` |
+| `LOG_ACCESS_HOST` | 访问日志是否附带访问域名（`Host`，缺失时回退 `X-Forwarded-Host`）；与 `LOG_ACCESS_IP` 都关闭时不输出访问日志 | 关闭 |
+| `LOG_ACCESS_IP` | 访问日志是否附带客户端 IP（受 `TRUST_PROXY` / `TRUST_CLOUDFLARE` 影响）；与 `LOG_ACCESS_HOST` 都关闭时不输出访问日志 | 关闭 |
 | `ALLOW_ORIGIN` | 公开接口允许跨域的源，多个用逗号分隔；留空或 `*` 表示允许所有，配置了但全部非法时按拒绝处理。公开接口不使用 Cookie | 空 |
 | `MUSIC` | 设置为 `open` 启用音乐 API | 关闭 |
 | `AVATAR` | 设置为 `open` 启用头像 API | 关闭 |
@@ -72,6 +74,8 @@ pnpm start
 | `ADMIN_SETUP_TOKEN` | 首次初始化令牌；不设置则随机生成并打印到服务端日志 | 自动生成 |
 
 > 部署在 Nginx / Caddy / Cloudflare 等反向代理之后时，必须设置 `TRUST_PROXY=true`，否则所有请求都会按代理的 socket IP 共享限流配额；同时建议设置 `TRUSTED_PROXIES`（例如 `127.0.0.1`）和 `PUBLIC_ORIGIN`。直接暴露到公网时保持 `TRUST_PROXY` 关闭，任何客户端都无法通过伪造 `X-Forwarded-For` 绕过限流或登录锁定。
+
+> 访问日志默认关闭；打开 `LOG_ACCESS_HOST` 和/或 `LOG_ACCESS_IP` 后，公开接口会为每条请求输出一行，例如 `[Access] GET /emoji/owo.json 200 3ms host=api.example.com ip=1.2.3.4`，只包含已打开的字段。访问日志不记录 `/admin`、静态资源与健康检查。
 
 ## 管理后台
 

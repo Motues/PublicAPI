@@ -9,6 +9,8 @@ process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'publicapi-test-'));
 process.env.ADMIN_SETUP_TOKEN = 'test-setup-token';
 process.env.ADMIN_SESSION_TTL = '999999';
 process.env.LOG_LEVEL = 'error';
+process.env.LOG_ACCESS_HOST = 'true';
+process.env.LOG_ACCESS_IP = 'false';
 process.env.ALLOW_ORIGIN = '';
 process.env.TRUST_PROXY = 'false';
 process.env.TRUSTED_PROXIES = '';
@@ -24,6 +26,9 @@ const { lruCacheMiddleware } = await import('../src/utils/middleware/lruCache.ts
 const { absolutizeIcons } = await import('../src/controllers/emojiController.ts');
 const { getNetworkInfo } = await import('../src/utils/networkInfo.ts');
 const { shutdownStats } = await import('../src/utils/middleware/counter.ts');
+const { createAccessLogMiddleware } = await import('../src/utils/middleware/accessLog.ts');
+const { logger } = await import('../src/utils/logger.ts');
+const { config } = await import('../src/utils/config.ts');
 
 test('jsonForScript 转义 </script> 且仍是合法 JSON', () => {
   const value = ['</script><script>alert(1)</script>', 'a&b'];
@@ -97,16 +102,64 @@ test('Cookie 状态只返回末 4 位', () => {
   assert.equal(status.cookiePreview, '…efgh');
 });
 
-test('文本表情输出转义 HTML', () => {
+test('文本表情只中和可成标签的 <，颜文字保持原样', () => {
   const out = absolutizeIcons({
     test: {
       type: 'emoticon',
-      container: [{ icon: '<img src=x onerror=alert(1)>', text: '<b>x</b>' }],
+      container: [
+        { icon: '<img src=x onerror=alert(1)>', text: '<b>x</b>' },
+        { icon: 'ヾ(´･ ･｀｡)ノ"', text: '' },
+        { icon: '(>_<) (</3) " \' &', text: 'a"b' },
+      ],
     },
   }, 'https://api.example.com');
 
-  assert.equal(out.test!.container[0]!.icon, '&lt;img src=x onerror=alert(1)&gt;');
+  // 可能开启标签的 < 被中和
+  assert.equal(out.test!.container[0]!.icon, '&lt;img src=x onerror=alert(1)>');
+  // text 会进 title 属性，仍然完整转义
   assert.equal(out.test!.container[0]!.text, '&lt;b&gt;x&lt;/b&gt;');
+  // 颜文字里的引号、尖括号、& 原样保留，不再出现 &quot; / &gt; / &lt;
+  assert.equal(out.test!.container[1]!.icon, 'ヾ(´･ ･｀｡)ノ"');
+  assert.equal(out.test!.container[2]!.icon, '(>_<) (</3) " \' &');
+  assert.equal(out.test!.container[2]!.text, 'a&quot;b');
+});
+
+test('访问日志按开关输出域名且不输出未开启的 IP', async () => {
+  const lines: string[] = [];
+  const originalInfo = logger.info;
+  logger.info = (message: string) => {
+    lines.push(message);
+  };
+
+  try {
+    const app = new Hono();
+    app.use('*', createAccessLogMiddleware({ logHost: true, logIp: false }));
+    app.get('/demo', (c) => c.text('ok'));
+    const res = await app.request('/demo', { headers: { host: 'api.example.com' } });
+    assert.equal(res.status, 200);
+
+    const ipApp = new Hono();
+    ipApp.use('*', createAccessLogMiddleware({ logHost: false, logIp: true }));
+    ipApp.get('/ip', (c) => c.text('ok'));
+    assert.equal((await ipApp.request('/ip')).status, 200);
+  } finally {
+    logger.info = originalInfo;
+  }
+
+  const demoLine = lines.find((line) => line.startsWith('GET /demo 200 '));
+  assert.equal(demoLine !== undefined, true);
+  assert.equal(demoLine!.includes('host=api.example.com'), true);
+  assert.equal(demoLine!.includes('ip='), false);
+
+  const ipLine = lines.find((line) => line.startsWith('GET /ip 200 '));
+  assert.equal(ipLine !== undefined, true);
+  assert.equal(ipLine!.includes('ip='), true);
+  assert.equal(ipLine!.includes('host='), false);
+});
+
+test('访问日志开关读取环境变量', () => {
+  assert.equal(config.logAccessHost, true);
+  assert.equal(config.logAccessIp, false);
 });
 
 test('网络与代理只读信息完整且不含密钥', () => {

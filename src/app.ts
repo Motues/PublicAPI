@@ -12,6 +12,7 @@ import { createCorsMiddleware } from './utils/middleware/cors.js';
 import { counterMiddleware } from './utils/middleware/counter.js';
 import { createRateLimitMiddleware } from './utils/middleware/rateLimiter.js';
 import { lruCacheMiddleware } from './utils/middleware/lruCache.js';
+import { accessLogMiddleware } from './utils/middleware/accessLog.js';
 import { securityHeaders } from './utils/middleware/security.js';
 import { config } from './utils/config.js';
 import { PUBLIC_DIR } from './utils/paths.js';
@@ -47,6 +48,14 @@ export const createApp = (): Hono => {
     c.header('Cache-Control', 'no-store');
     return c.json({ status: 'ok', uptimeSeconds: Math.floor(process.uptime()) });
   });
+
+  // 访问日志（可选）：LOG_ACCESS_HOST / LOG_ACCESS_IP 任一打开才记录公开接口，
+  // 不记录后台、静态资源与健康检查，避免把敏感路径或大流量写进日志
+  if (config.logAccessHost || config.logAccessIp) {
+    if (config.musicOpen) app.use('/music/*', accessLogMiddleware);
+    if (config.avatarOpen) app.use('/avatar/*', accessLogMiddleware);
+    if (config.emojiOpen) app.use('/emoji/*', accessLogMiddleware);
+  }
 
   // 公开接口才挂 CORS；后台同源访问，不暴露跨域读能力
   const publicCors = createCorsMiddleware(config.allowedOrigins, config.allowAllOrigins);

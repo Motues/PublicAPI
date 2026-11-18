@@ -48,7 +48,7 @@ OwO 格式的表情数据接口，兼容 [Twikoo](https://github.com/imaegoo/twi
 - `emoji`：Emoji 字符，`icon` 直接是字符
 - `image`：图片表情，`icon` 为 `<img src="...">` 标签，其中 `src` 是本服务的完整图片地址
 
-> 文本类型（`emoticon` / `emoji`）的 `icon` 和 `text` 在输出前会做 HTML 转义，使用方按 HTML 插入即可；图片类型只补全站内 `src`，不会改写成文本。
+> 文本类型（`emoticon` / `emoji`）的 `icon` 只会中和可能形成 HTML 标签的 `<`（如 `<img>`、`<script>`），引号、`&`、`>` 等颜文字常用字符原样保留；`text` 会做完整 HTML 转义。使用方按 HTML 插入即可；图片类型只补全站内 `src`，不会改写成文本。
 
 ### group
 
